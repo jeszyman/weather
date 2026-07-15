@@ -6,14 +6,16 @@ export const WHO_BANDS = [
   { min: 11, max: 100, label: 'Extreme',   color: '#9c27b0' },
 ];
 
-export function filterToday(time, uv, uvClear, todayStr) {
+export function todayIndices(time, todayStr) {
   const out = [];
   for (let i = 0; i < time.length; i++) {
-    if (typeof time[i] === 'string' && time[i].startsWith(todayStr)) {
-      out.push({ time: time[i], uv: uv[i], uvClear: uvClear[i] });
-    }
+    if (typeof time[i] === 'string' && time[i].startsWith(todayStr)) out.push(i);
   }
   return out;
+}
+
+export function filterToday(time, uv, uvClear, todayStr) {
+  return todayIndices(time, todayStr).map((i) => ({ time: time[i], uv: uv[i], uvClear: uvClear[i] }));
 }
 
 export function computeCeiling(points) {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterToday, computeCeiling, findPeak, WHO_BANDS, locationToday } from '../uv-core.js';
+import { filterToday, todayIndices, computeCeiling, findPeak, WHO_BANDS, locationToday } from '../uv-core.js';
 
 test('filterToday keeps only matching local date and zips arrays', () => {
   const time = ['2026-07-13T23:00', '2026-07-14T00:00', '2026-07-14T13:00', '2026-07-15T00:00'];
@@ -34,4 +34,11 @@ test('locationToday derives the location-local date from utc offset, independent
   assert.equal(locationToday(ms, -5 * 3600), '2026-07-13');
   // 2026-07-14T05:00 UTC, -5h => 2026-07-14 00:00 locally
   assert.equal(locationToday(Date.UTC(2026, 6, 14, 5, 0), -5 * 3600), '2026-07-14');
+});
+
+test('todayIndices returns indices whose time starts with the date', () => {
+  const time = ['2026-07-14T23:00', '2026-07-15T00:00', '2026-07-15T13:00', '2026-07-16T00:00'];
+  assert.deepEqual(todayIndices(time, '2026-07-15'), [1, 2]);
+  assert.deepEqual(todayIndices(time, '2026-07-14'), [0]);
+  assert.deepEqual(todayIndices(time, '2026-07-17'), []);
 });
