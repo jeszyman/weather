@@ -38,10 +38,6 @@ export function locationToday(nowMs, utcOffsetSeconds) {
 
 function hourOfDay(iso) { return Number(iso.slice(11, 13)); }
 
-function hourOfDayT(iso) { return Number(iso.slice(11, 13)); }
-
-function hourOfDayP(iso) { return Number(iso.slice(11, 13)); }
-
 export function buildTempSvg(points, opts = {}) {
   const { width = 720, height = 240, pad = 40 } = opts;
   const plotW = width - 2 * pad;
@@ -54,7 +50,7 @@ export function buildTempSvg(points, opts = {}) {
   const y = (t) => (height - pad) - ((t - lo) / (hi - lo)) * plotH;
 
   const poly = points.length
-    ? `<polyline points="${points.map((p) => `${x(hourOfDayT(p.time)).toFixed(1)},${y(p.temp).toFixed(1)}`).join(' ')}" fill="none" stroke="#e65100" stroke-width="2"/>`
+    ? `<polyline points="${points.map((p) => `${x(hourOfDay(p.time)).toFixed(1)},${y(p.temp).toFixed(1)}`).join(' ')}" fill="none" stroke="#e65100" stroke-width="2"/>`
     : '<polyline points="" fill="none" stroke="#e65100"/>';
 
   let ticks = '';
@@ -71,10 +67,10 @@ export function buildTempSvg(points, opts = {}) {
     const hiP = points.reduce((a, b) => (b.temp > a.temp ? b : a));
     const loP = points.reduce((a, b) => (b.temp < a.temp ? b : a));
     labels =
-      `<circle cx="${x(hourOfDayT(hiP.time)).toFixed(1)}" cy="${y(hiP.temp).toFixed(1)}" r="3" fill="#e65100"/>` +
-      `<text x="${x(hourOfDayT(hiP.time)).toFixed(1)}" y="${(y(hiP.temp) - 8).toFixed(1)}" font-size="12" text-anchor="middle" fill="#e65100">high ${Math.round(hiP.temp)}°</text>` +
-      `<circle cx="${x(hourOfDayT(loP.time)).toFixed(1)}" cy="${y(loP.temp).toFixed(1)}" r="3" fill="#0277bd"/>` +
-      `<text x="${x(hourOfDayT(loP.time)).toFixed(1)}" y="${(y(loP.temp) + 16).toFixed(1)}" font-size="12" text-anchor="middle" fill="#0277bd">low ${Math.round(loP.temp)}°</text>`;
+      `<circle cx="${x(hourOfDay(hiP.time)).toFixed(1)}" cy="${y(hiP.temp).toFixed(1)}" r="3" fill="#e65100"/>` +
+      `<text x="${x(hourOfDay(hiP.time)).toFixed(1)}" y="${(y(hiP.temp) - 8).toFixed(1)}" font-size="12" text-anchor="middle" fill="#e65100">high ${Math.round(hiP.temp)}°</text>` +
+      `<circle cx="${x(hourOfDay(loP.time)).toFixed(1)}" cy="${y(loP.temp).toFixed(1)}" r="3" fill="#0277bd"/>` +
+      `<text x="${x(hourOfDay(loP.time)).toFixed(1)}" y="${(y(loP.temp) + 16).toFixed(1)}" font-size="12" text-anchor="middle" fill="#0277bd">low ${Math.round(loP.temp)}°</text>`;
   }
 
   const axis = `<line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" stroke="#999"/>` +
@@ -148,14 +144,14 @@ export function buildPrecipSvg(points, opts = {}) {
   const barW = Math.max(2, (plotW / 24) * 0.7);
   const bars = points
     .map((p) => {
-      const bx = x(hourOfDayP(p.time)) - barW / 2;
+      const bx = x(hourOfDay(p.time)) - barW / 2;
       const top = yProb(p.prob);
       return `<rect x="${bx.toFixed(1)}" y="${top.toFixed(1)}" width="${barW.toFixed(1)}" height="${(height - pad - top).toFixed(1)}" fill="#4fc3f7" opacity="0.6"/>`;
     })
     .join('');
 
   const amtLine = points.length
-    ? `<polyline points="${points.map((p) => `${x(hourOfDayP(p.time)).toFixed(1)},${yAmt(p.amount).toFixed(1)}`).join(' ')}" fill="none" stroke="#01579b" stroke-width="1.5"/>`
+    ? `<polyline points="${points.map((p) => `${x(hourOfDay(p.time)).toFixed(1)},${yAmt(p.amount).toFixed(1)}`).join(' ')}" fill="none" stroke="#01579b" stroke-width="1.5"/>`
     : '<polyline points="" fill="none" stroke="#01579b"/>';
 
   let ticks = '';
@@ -184,7 +180,7 @@ export function buildWeatherTable(points) {
   const head = '<thead><tr><th>Hour</th><th>°F</th><th>Precip %</th><th>Precip in</th></tr></thead>';
   const body = points
     .map((p) => {
-      const hh = String(hourOfDayP(p.time)).padStart(2, '0');
+      const hh = String(hourOfDay(p.time)).padStart(2, '0');
       return `<tr><td>${hh}:00</td><td>${Math.round(p.temp)}</td><td>${Math.round(p.prob)}</td><td>${Number(p.amount).toFixed(2)}</td></tr>`;
     })
     .join('');
