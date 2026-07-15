@@ -28,6 +28,12 @@ export function findPeak(points) {
   );
 }
 
+export function locationToday(nowMs, utcOffsetSeconds) {
+  const d = new Date(nowMs + utcOffsetSeconds * 1000);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}`;
+}
+
 function hourOfDay(iso) { return Number(iso.slice(11, 13)); }
 
 export function buildSvg(points, opts = {}) {

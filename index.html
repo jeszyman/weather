@@ -17,7 +17,7 @@
   <p class="sub">Solid = forecast UV, dashed = clear-sky. Source: Open-Meteo.</p>
   <div id="chart">Loading…</div>
   <script type="module">
-    import { filterToday, buildSvg } from './uv-core.js';
+    import { filterToday, buildSvg, locationToday } from './uv-core.js';
 
     const LAT = 38.67, LON = -90.37;
     const URL = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${LAT}&longitude=${LON}&hourly=uv_index,uv_index_clear_sky&timezone=auto`;
@@ -26,21 +26,18 @@
       const res = await fetch(URL);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
-      if (!json.hourly || !Array.isArray(json.hourly.time)) throw new Error('malformed response');
-      return json.hourly;
-    }
-
-    function localToday() {
-      const d = new Date();
-      const p = (n) => String(n).padStart(2, '0');
-      return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+      if (!json.hourly || !Array.isArray(json.hourly.time) || typeof json.utc_offset_seconds !== 'number') {
+        throw new Error('malformed response');
+      }
+      return json;
     }
 
     async function main() {
       const el = document.getElementById('chart');
       try {
-        const h = await fetchUV();
-        const points = filterToday(h.time, h.uv_index, h.uv_index_clear_sky, localToday());
+        const j = await fetchUV();
+        const h = j.hourly;
+        const points = filterToday(h.time, h.uv_index, h.uv_index_clear_sky, locationToday(Date.now(), j.utc_offset_seconds));
         if (!points.length) { el.textContent = 'No UV data for today yet.'; return; }
         el.innerHTML = buildSvg(points);
       } catch (e) {

@@ -25,7 +25,7 @@ test('buildSvg never emits y above the plot ceiling (no clipping at UV 8)', () =
 });
 
 test('buildSvg labels the peak UV value', () => {
-  assert.match(buildSvg(pts), /8/);
+  assert.match(buildSvg(pts), /peak 8 @/);
 });
 
 test('buildSvg with empty points returns svg without throwing', () => {

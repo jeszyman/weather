@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterToday, computeCeiling, findPeak, WHO_BANDS } from '../uv-core.js';
+import { filterToday, computeCeiling, findPeak, WHO_BANDS, locationToday } from '../uv-core.js';
 
 test('filterToday keeps only matching local date and zips arrays', () => {
   const time = ['2026-07-13T23:00', '2026-07-14T00:00', '2026-07-14T13:00', '2026-07-15T00:00'];
@@ -26,4 +26,12 @@ test('findPeak returns highest uv and its time, first on ties', () => {
 test('WHO_BANDS covers 0..12 contiguously', () => {
   assert.equal(WHO_BANDS[0].min, 0);
   assert.equal(WHO_BANDS.at(-1).max >= 11, true);
+});
+
+test('locationToday derives the location-local date from utc offset, independent of viewer tz', () => {
+  // 2026-07-14T04:30 UTC, location offset -5h (CDT) => still 2026-07-13 locally (23:30)
+  const ms = Date.UTC(2026, 6, 14, 4, 30);
+  assert.equal(locationToday(ms, -5 * 3600), '2026-07-13');
+  // 2026-07-14T05:00 UTC, -5h => 2026-07-14 00:00 locally
+  assert.equal(locationToday(Date.UTC(2026, 6, 14, 5, 0), -5 * 3600), '2026-07-14');
 });
