@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hourly UV — Olivette</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 780px; padding: 0 1rem; color: #222; }
+    h1 { font-size: 1.25rem; }
+    #chart svg { border: 1px solid #eee; border-radius: 6px; }
+    .err { color: #b00; padding: 1rem; border: 1px solid #f3c; border-radius: 6px; }
+    .sub { color: #666; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <h1>Hourly UV Index — Olivette, MO</h1>
+  <p class="sub">Solid = forecast UV, dashed = clear-sky. Source: Open-Meteo.</p>
+  <div id="chart">Loading…</div>
+  <script type="module">
+    import { filterToday, buildSvg } from './uv-core.js';
+
+    const LAT = 38.67, LON = -90.37;
+    const URL = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${LAT}&longitude=${LON}&hourly=uv_index,uv_index_clear_sky&timezone=auto`;
+
+    async function fetchUV() {
+      const res = await fetch(URL);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      if (!json.hourly || !Array.isArray(json.hourly.time)) throw new Error('malformed response');
+      return json.hourly;
+    }
+
+    function localToday() {
+      const d = new Date();
+      const p = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+    }
+
+    async function main() {
+      const el = document.getElementById('chart');
+      try {
+        const h = await fetchUV();
+        const points = filterToday(h.time, h.uv_index, h.uv_index_clear_sky, localToday());
+        if (!points.length) { el.textContent = 'No UV data for today yet.'; return; }
+        el.innerHTML = buildSvg(points);
+      } catch (e) {
+        console.error(e);
+        el.innerHTML = `<div class="err">Couldn't load UV data — try again later.</div>`;
+      }
+    }
+    main();
+  </script>
+</body>
+</html>
