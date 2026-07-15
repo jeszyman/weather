@@ -38,6 +38,49 @@ export function locationToday(nowMs, utcOffsetSeconds) {
 
 function hourOfDay(iso) { return Number(iso.slice(11, 13)); }
 
+function hourOfDayT(iso) { return Number(iso.slice(11, 13)); }
+
+export function buildTempSvg(points, opts = {}) {
+  const { width = 720, height = 240, pad = 40 } = opts;
+  const plotW = width - 2 * pad;
+  const plotH = height - 2 * pad;
+  const temps = points.map((p) => p.temp);
+  let lo = points.length ? Math.floor(Math.min(...temps)) - 2 : 0;
+  let hi = points.length ? Math.ceil(Math.max(...temps)) + 2 : 10;
+  if (hi - lo < 10) { const mid = (hi + lo) / 2; lo = mid - 5; hi = mid + 5; }
+  const x = (h) => pad + (h / 23) * plotW;
+  const y = (t) => (height - pad) - ((t - lo) / (hi - lo)) * plotH;
+
+  const poly = points.length
+    ? `<polyline points="${points.map((p) => `${x(hourOfDayT(p.time)).toFixed(1)},${y(p.temp).toFixed(1)}`).join(' ')}" fill="none" stroke="#e65100" stroke-width="2"/>`
+    : '<polyline points="" fill="none" stroke="#e65100"/>';
+
+  let ticks = '';
+  for (let h = 0; h <= 23; h += 3) {
+    ticks += `<text x="${x(h).toFixed(1)}" y="${height - pad + 16}" font-size="11" text-anchor="middle" fill="#555">${String(h).padStart(2, '0')}</text>`;
+  }
+  const yStep = Math.max(2, Math.round((hi - lo) / 6));
+  for (let v = Math.ceil(lo); v <= hi; v += yStep) {
+    ticks += `<text x="${pad - 8}" y="${(y(v) + 4).toFixed(1)}" font-size="11" text-anchor="end" fill="#555">${v}</text>`;
+  }
+
+  let labels = '';
+  if (points.length) {
+    const hiP = points.reduce((a, b) => (b.temp > a.temp ? b : a));
+    const loP = points.reduce((a, b) => (b.temp < a.temp ? b : a));
+    labels =
+      `<circle cx="${x(hourOfDayT(hiP.time)).toFixed(1)}" cy="${y(hiP.temp).toFixed(1)}" r="3" fill="#e65100"/>` +
+      `<text x="${x(hourOfDayT(hiP.time)).toFixed(1)}" y="${(y(hiP.temp) - 8).toFixed(1)}" font-size="12" text-anchor="middle" fill="#e65100">high ${Math.round(hiP.temp)}°</text>` +
+      `<circle cx="${x(hourOfDayT(loP.time)).toFixed(1)}" cy="${y(loP.temp).toFixed(1)}" r="3" fill="#0277bd"/>` +
+      `<text x="${x(hourOfDayT(loP.time)).toFixed(1)}" y="${(y(loP.temp) + 16).toFixed(1)}" font-size="12" text-anchor="middle" fill="#0277bd">low ${Math.round(loP.temp)}°</text>`;
+  }
+
+  const axis = `<line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" stroke="#999"/>` +
+               `<line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height - pad}" stroke="#999"/>`;
+
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" xmlns="http://www.w3.org/2000/svg">${axis}${ticks}${poly}${labels}</svg>`;
+}
+
 export function buildSvg(points, opts = {}) {
   const { width = 720, height = 320, pad = 40 } = opts;
   const plotW = width - 2 * pad;
