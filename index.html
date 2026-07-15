@@ -10,14 +10,24 @@
     #chart svg { border: 1px solid #eee; border-radius: 6px; }
     .err { color: #b00; padding: 1rem; border: 1px solid #f3c; border-radius: 6px; }
     .sub { color: #666; font-size: 0.85rem; }
+    table { border-collapse: collapse; font-size: 0.85rem; width: 100%; }
+    th, td { border: 1px solid #eee; padding: 2px 8px; text-align: right; }
+    th:first-child, td:first-child { text-align: left; }
   </style>
 </head>
 <body>
   <h1>Hourly UV Index — Olivette, MO</h1>
   <p class="sub">Solid = forecast UV, dashed = clear-sky. Source: Open-Meteo.</p>
   <div id="chart">Loading…</div>
+  <h2 style="font-size:1.1rem;margin-top:2rem;">Temperature — Olivette, MO</h2>
+  <div id="temp">Loading…</div>
+  <h2 style="font-size:1.1rem;margin-top:1.5rem;">Precipitation — Olivette, MO</h2>
+  <p class="sub">Bars = chance of rain (%), line = hourly amount (in).</p>
+  <div id="precip">Loading…</div>
+  <h2 style="font-size:1.1rem;margin-top:1.5rem;">Hourly detail</h2>
+  <div id="wtable">Loading…</div>
   <script type="module">
-    import { filterToday, buildSvg, locationToday } from './uv-core.js';
+    import { filterToday, buildSvg, locationToday, todayIndices, buildTempSvg, buildPrecipSvg, buildWeatherTable } from './uv-core.js';
 
     const LAT = 38.67, LON = -90.37;
     const URL = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${LAT}&longitude=${LON}&hourly=uv_index,uv_index_clear_sky&timezone=auto`;
@@ -46,6 +56,46 @@
       }
     }
     main();
+
+    const FURL = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&hourly=temperature_2m,precipitation_probability,precipitation&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=auto`;
+
+    async function fetchForecast() {
+      const res = await fetch(FURL);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const j = await res.json();
+      const h = j.hourly;
+      const ok = h && Array.isArray(h.time) && Array.isArray(h.temperature_2m) &&
+        Array.isArray(h.precipitation_probability) && Array.isArray(h.precipitation) &&
+        h.temperature_2m.length === h.time.length &&
+        h.precipitation_probability.length === h.time.length &&
+        h.precipitation.length === h.time.length &&
+        typeof j.utc_offset_seconds === 'number';
+      if (!ok) throw new Error('malformed response');
+      return j;
+    }
+
+    async function mainForecast() {
+      const tEl = document.getElementById('temp');
+      const pEl = document.getElementById('precip');
+      const wEl = document.getElementById('wtable');
+      try {
+        const j = await fetchForecast();
+        const h = j.hourly;
+        const idx = todayIndices(h.time, locationToday(Date.now(), j.utc_offset_seconds));
+        if (!idx.length) { tEl.textContent = pEl.textContent = wEl.textContent = 'No forecast for today yet.'; return; }
+        const temp = idx.map((i) => ({ time: h.time[i], temp: h.temperature_2m[i] }));
+        const precip = idx.map((i) => ({ time: h.time[i], prob: h.precipitation_probability[i], amount: h.precipitation[i] }));
+        const all = idx.map((i) => ({ time: h.time[i], temp: h.temperature_2m[i], prob: h.precipitation_probability[i], amount: h.precipitation[i] }));
+        tEl.innerHTML = buildTempSvg(temp);
+        pEl.innerHTML = buildPrecipSvg(precip);
+        wEl.innerHTML = buildWeatherTable(all);
+      } catch (e) {
+        console.error(e);
+        const msg = `<div class="err">Couldn't load forecast — try again later.</div>`;
+        tEl.innerHTML = msg; pEl.innerHTML = ''; wEl.innerHTML = '';
+      }
+    }
+    mainForecast();
   </script>
 </body>
 </html>
