@@ -40,6 +40,8 @@ function hourOfDay(iso) { return Number(iso.slice(11, 13)); }
 
 function hourOfDayT(iso) { return Number(iso.slice(11, 13)); }
 
+function hourOfDayP(iso) { return Number(iso.slice(11, 13)); }
+
 export function buildTempSvg(points, opts = {}) {
   const { width = 720, height = 240, pad = 40 } = opts;
   const plotW = width - 2 * pad;
@@ -131,4 +133,60 @@ export function buildSvg(points, opts = {}) {
                `<line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height - pad}" stroke="#999"/>`;
 
   return `<svg viewBox="0 0 ${width} ${height}" width="100%" xmlns="http://www.w3.org/2000/svg">${bands}${axis}${ticks}${clearLine}${uvLine}${peakLabel}</svg>`;
+}
+
+export function buildPrecipSvg(points, opts = {}) {
+  const { width = 720, height = 200, pad = 40 } = opts;
+  const plotW = width - 2 * pad;
+  const plotH = height - 2 * pad;
+  const x = (h) => pad + (h / 23) * plotW;
+  const yProb = (p) => (height - pad) - (Math.max(0, Math.min(100, p)) / 100) * plotH;
+  const maxAmt = points.reduce((m, p) => Math.max(m, p.amount || 0), 0);
+  const amtTop = Math.max(0.1, Math.ceil(maxAmt * 10) / 10);
+  const yAmt = (a) => (height - pad) - (Math.max(0, a) / amtTop) * plotH;
+
+  const barW = Math.max(2, (plotW / 24) * 0.7);
+  const bars = points
+    .map((p) => {
+      const bx = x(hourOfDayP(p.time)) - barW / 2;
+      const top = yProb(p.prob);
+      return `<rect x="${bx.toFixed(1)}" y="${top.toFixed(1)}" width="${barW.toFixed(1)}" height="${(height - pad - top).toFixed(1)}" fill="#4fc3f7" opacity="0.6"/>`;
+    })
+    .join('');
+
+  const amtLine = points.length
+    ? `<polyline points="${points.map((p) => `${x(hourOfDayP(p.time)).toFixed(1)},${yAmt(p.amount).toFixed(1)}`).join(' ')}" fill="none" stroke="#01579b" stroke-width="1.5"/>`
+    : '<polyline points="" fill="none" stroke="#01579b"/>';
+
+  let ticks = '';
+  for (let h = 0; h <= 23; h += 3) {
+    ticks += `<text x="${x(h).toFixed(1)}" y="${height - pad + 16}" font-size="11" text-anchor="middle" fill="#555">${String(h).padStart(2, '0')}</text>`;
+  }
+  for (let p = 0; p <= 100; p += 25) {
+    ticks += `<text x="${pad - 8}" y="${(yProb(p) + 4).toFixed(1)}" font-size="10" text-anchor="end" fill="#4fc3f7">${p}%</text>`;
+  }
+  ticks += `<text x="${width - pad + 6}" y="${(yAmt(amtTop) + 4).toFixed(1)}" font-size="10" text-anchor="start" fill="#01579b">${amtTop}"</text>` +
+           `<text x="${width - pad + 6}" y="${(yAmt(0) + 4).toFixed(1)}" font-size="10" text-anchor="start" fill="#01579b">0"</text>`;
+
+  const legend =
+    `<rect x="${pad}" y="8" width="10" height="10" fill="#4fc3f7" opacity="0.6"/>` +
+    `<text x="${pad + 14}" y="17" font-size="11" fill="#555">prob %</text>` +
+    `<line x1="${pad + 70}" y1="13" x2="${pad + 90}" y2="13" stroke="#01579b" stroke-width="1.5"/>` +
+    `<text x="${pad + 94}" y="17" font-size="11" fill="#555">amount in</text>`;
+
+  const axis = `<line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" stroke="#999"/>` +
+               `<line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height - pad}" stroke="#999"/>`;
+
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" xmlns="http://www.w3.org/2000/svg">${axis}${bars}${amtLine}${ticks}${legend}</svg>`;
+}
+
+export function buildWeatherTable(points) {
+  const head = '<thead><tr><th>Hour</th><th>°F</th><th>Precip %</th><th>Precip in</th></tr></thead>';
+  const body = points
+    .map((p) => {
+      const hh = String(hourOfDayP(p.time)).padStart(2, '0');
+      return `<tr><td>${hh}:00</td><td>${Math.round(p.temp)}</td><td>${Math.round(p.prob)}</td><td>${Number(p.amount).toFixed(2)}</td></tr>`;
+    })
+    .join('');
+  return `<table>${head}<tbody>${body}</tbody></table>`;
 }
