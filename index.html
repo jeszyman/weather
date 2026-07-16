@@ -3,81 +3,303 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Hourly UV — Olivette</title>
+  <title>GO/NO-GO — outdoor conditions</title>
   <style>
-    body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 780px; padding: 0 1rem; color: #222; }
-    h1 { font-size: 1.25rem; }
-    #chart svg { border: 1px solid #eee; border-radius: 6px; }
-    .err { color: #b00; padding: 1rem; border: 1px solid #f3c; border-radius: 6px; }
-    .sub { color: #666; font-size: 0.85rem; }
-    table { border-collapse: collapse; font-size: 0.85rem; width: 100%; }
-    th, td { border: 1px solid #eee; padding: 2px 8px; text-align: right; }
-    th:first-child, td:first-child { text-align: left; }
-    #locbar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 1rem; }
-    #locbar select, #locbar input, #locbar button { font-size: 0.9rem; padding: 4px 8px; }
-    #picks { flex-basis: 100%; }
-    #picks button { display: block; width: 100%; text-align: left; padding: 6px 8px; margin: 2px 0; border: 1px solid #ddd; background: #fafafa; cursor: pointer; }
-    #picks button:hover { background: #eef; }
-    #picks .msg { color: #666; font-size: 0.85rem; padding: 4px 0; }
-    #matrix-wrap { overflow-x: auto; margin-bottom: 1.5rem; }
-    table.matrix { border-collapse: collapse; font-size: 0.8rem; width: auto; }
-    table.matrix th, table.matrix td { border: 1px solid #eee; width: 22px; height: 22px; text-align: center; padding: 0; }
-    table.matrix th.rowlabel { position: sticky; left: 0; background: #fff; text-align: left; padding: 0 8px; white-space: nowrap; width: auto; z-index: 1; }
-    table.matrix td.go { background: #c8e6c9; }
-    table.matrix td.caution { background: #ffe082; }
-    table.matrix td.nogo { background: #ef9a9a; }
-    table.matrix td.night { box-shadow: inset 0 0 0 99px rgba(30,30,60,0.28); }
-    .matrix-legend { font-size: 0.8rem; display: flex; gap: 0.75rem; margin-bottom: 0.4rem; align-items: center; }
-    #alerts { margin-bottom: 1rem; }
-    .alerts { display: flex; flex-direction: column; gap: 4px; }
-    .alert-row { display: flex; justify-content: space-between; gap: 1rem; padding: 6px 10px; border-radius: 4px; font-size: 0.9rem; }
-    .alert-row.sev-high { background: #ef9a9a; }
-    .alert-row.sev-mid { background: #ffe082; }
-    .alert-row.sev-low { background: #e0e0e0; }
-    .alert-ev { font-weight: 600; }
-    .alert-win { color: #444; white-space: nowrap; }
-    #radar-map { height: 360px; border: 1px solid #eee; border-radius: 6px; }
-    .radar-controls { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 0.4rem; }
-    #radar-play { font-size: 0.9rem; padding: 4px 10px; cursor: pointer; }
-    #radar-scrub { width: 100%; margin: 6px 0 2px; cursor: pointer; accent-color: #c62828; }
+    :root {
+      --ink: #0f1620;        /* console body */
+      --ink-2: #0b1017;      /* deepest / grout */
+      --panel: #18212e;      /* raised panel */
+      --panel-2: #1f2a3a;    /* interactive surface */
+      --line: #2b3a4f;       /* hairline */
+      --screen: #f5f7fa;     /* lit readout inset (charts/map) */
+      --text: #e7eef6;
+      --muted: #93a6bd;
+      --faint: #61748c;
+      --go: #33c06f;
+      --caution: #f5b73d;
+      --nogo: #f26169;
+      --accent: #4aa8ff;     /* the "now" instrument blue */
+      --font-grotesk: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Menlo, Consolas, monospace;
+      --radius: 10px;
+      --pad: clamp(0.85rem, 3vw, 1.35rem);
+    }
+    * { box-sizing: border-box; }
+    html, body { background: var(--ink); }
+    body {
+      font-family: var(--font-grotesk);
+      color: var(--text);
+      margin: 0;
+      padding: clamp(1rem, 4vw, 2.25rem) 1rem 3rem;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+    .console { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 1rem; }
+
+    /* ---- masthead / brand ---- */
+    .masthead {
+      display: flex; flex-wrap: wrap; gap: 1rem 1.5rem;
+      align-items: flex-end; justify-content: space-between;
+      padding-bottom: 1rem; margin-bottom: 0.25rem;
+      border-bottom: 1px solid var(--line);
+    }
+    .brand { display: flex; flex-direction: column; gap: 0.35rem; }
+    .brand__lamps { display: inline-flex; gap: 5px; align-items: center; }
+    .brand__lamps .lamp { width: 22px; height: 5px; border-radius: 2px; display: inline-block; }
+    .lamp--go { background: var(--go); box-shadow: 0 0 9px -1px var(--go); }
+    .lamp--caution { background: var(--caution); box-shadow: 0 0 9px -1px var(--caution); }
+    .lamp--nogo { background: var(--nogo); box-shadow: 0 0 9px -1px var(--nogo); }
+    .brand__name {
+      font-weight: 800; font-size: clamp(1.5rem, 6vw, 2.1rem);
+      letter-spacing: 0.02em; line-height: 1; color: var(--text);
+    }
+    .brand__name .slash { color: var(--faint); font-weight: 500; }
+    .brand__tag {
+      font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.03em;
+      color: var(--muted); text-transform: uppercase;
+    }
+
+    /* ---- location bar ---- */
+    #locbar { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+    #locbar select, #locbar input, #locbar button {
+      font-family: var(--font-mono); font-size: 0.82rem;
+      background: var(--panel-2); color: var(--text);
+      border: 1px solid var(--line); border-radius: 7px;
+      padding: 6px 9px; transition: border-color 0.15s, background 0.15s;
+    }
+    #locbar input::placeholder { color: var(--faint); }
+    #locbar button { cursor: pointer; color: var(--muted); }
+    #locbar button:hover { background: var(--panel); color: var(--text); border-color: var(--accent); }
+    #locremove { padding: 6px 10px; }
+    #picks { flex-basis: 100%; display: flex; flex-direction: column; gap: 3px; margin-top: 2px; }
+    #picks button {
+      width: 100%; text-align: left; padding: 8px 10px;
+      border: 1px solid var(--line); background: var(--panel-2); color: var(--text);
+      border-radius: 7px; cursor: pointer; font-family: var(--font-mono); font-size: 0.82rem;
+    }
+    #picks button:hover { border-color: var(--accent); background: var(--panel); }
+    #picks .msg { color: var(--muted); font-size: 0.8rem; padding: 4px 2px; font-family: var(--font-mono); }
+
+    /* ---- panels ---- */
+    .panel {
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: var(--radius); padding: var(--pad);
+    }
+    .panel--hero { border-color: #33465f; box-shadow: 0 0 0 1px rgba(74,168,255,0.06), 0 14px 40px -24px rgba(0,0,0,0.9); }
+    .panel__head {
+      display: flex; flex-wrap: wrap; gap: 0.5rem 1rem;
+      align-items: baseline; justify-content: space-between; margin-bottom: 0.85rem;
+    }
+    .panel__title {
+      margin: 0; font-size: 0.74rem; font-weight: 700;
+      letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted);
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .panel__title::before {
+      content: ""; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--accent); box-shadow: 0 0 8px -1px var(--accent); flex: none;
+    }
+    .cap { margin: 0 0 0.75rem; color: var(--muted); font-size: 0.78rem; }
+    .cap--foot { margin: 0.6rem 0 0; color: var(--faint); }
+
+    /* ---- lit screen inset (charts + map) ---- */
+    .screen {
+      background: var(--screen); border-radius: 8px; padding: 8px;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+    }
+    .screen svg { display: block; }
+    .screen--map { padding: 6px; }
+    #radar-map { height: clamp(280px, 46vw, 380px); border-radius: 5px; }
+
+    /* ---- radar controls ---- */
+    .radar-controls { display: flex; gap: 0.75rem; align-items: center; }
+    .transport {
+      font-family: var(--font-mono); font-size: 0.8rem; font-variant-numeric: tabular-nums;
+      background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+      border-radius: 7px; padding: 5px 12px; cursor: pointer; min-width: 92px; text-align: left;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .transport:hover { border-color: var(--accent); background: var(--panel); }
+    .readout {
+      font-family: var(--font-mono); font-size: 0.8rem; color: var(--accent);
+      letter-spacing: 0.02em; font-variant-numeric: tabular-nums;
+    }
+    #radar-scrub {
+      width: 100%; margin: 0.6rem 0 0.15rem; cursor: pointer; accent-color: var(--accent);
+      height: 4px; background: transparent;
+    }
+
+    /* ---- alerts banner ---- */
+    #alerts:empty { display: none; }
+    .alerts { display: flex; flex-direction: column; gap: 5px; }
+    .alert-row {
+      display: flex; justify-content: space-between; gap: 1rem; align-items: center;
+      padding: 9px 13px; border-radius: 8px; font-size: 0.85rem;
+      border: 1px solid transparent;
+    }
+    .alert-row.sev-high { background: rgba(242,97,105,0.14); border-color: rgba(242,97,105,0.5); color: #ffd7d9; }
+    .alert-row.sev-mid  { background: rgba(245,183,61,0.13); border-color: rgba(245,183,61,0.45); color: #ffe9bd; }
+    .alert-row.sev-low  { background: var(--panel-2); border-color: var(--line); color: var(--text); }
+    .alert-ev { font-weight: 700; letter-spacing: 0.01em; }
+    .alert-win { color: var(--muted); white-space: nowrap; font-family: var(--font-mono); font-size: 0.78rem; }
+
+    /* ---- conditions matrix (the hero) ---- */
+    #matrix-wrap { overflow-x: auto; }
+    table.matrix { border-collapse: separate; border-spacing: 2px; font-family: var(--font-mono); font-size: 0.78rem; width: auto; }
+    table.matrix th, table.matrix td {
+      width: 24px; height: 24px; text-align: center; padding: 0; border: 0; border-radius: 4px;
+    }
+    table.matrix thead th, table.matrix tr:first-child th {
+      color: var(--faint); font-weight: 500; font-variant-numeric: tabular-nums;
+      height: 20px; letter-spacing: 0;
+    }
+    table.matrix th.rowlabel {
+      position: sticky; left: 0; z-index: 1;
+      background: var(--panel); color: var(--text);
+      text-align: left; padding: 0 12px 0 2px; white-space: nowrap; width: auto;
+      font-family: var(--font-grotesk); font-size: 0.78rem; font-weight: 600; letter-spacing: 0.01em;
+    }
+    table.matrix td { color: rgba(8,13,20,0.72); font-weight: 700; }
+    table.matrix td.go { background: var(--go); }
+    table.matrix td.caution { background: var(--caution); }
+    table.matrix td.nogo { background: var(--nogo); }
+    table.matrix td.night { background-image: linear-gradient(rgba(8,12,20,0.5), rgba(8,12,20,0.5)); }
+    /* NOW playhead: vertical accent band down the current-hour column */
+    table.matrix td.nowcol, table.matrix th.nowcol {
+      box-shadow: inset 1px 0 0 var(--accent), inset -1px 0 0 var(--accent);
+    }
+    table.matrix th.nowcol { color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
+    .legend {
+      display: flex; flex-wrap: wrap; gap: 0.35rem 0.9rem; align-items: center;
+      font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted);
+    }
+    .legend .key { display: inline-flex; align-items: center; gap: 0.4rem; }
+    .legend .chip { width: 13px; height: 13px; border-radius: 3px; display: inline-block; }
+    .legend .chip--go { background: var(--go); }
+    .legend .chip--caution { background: var(--caution); }
+    .legend .chip--nogo { background: var(--nogo); }
+    .legend .chip--night { background: var(--panel-2); background-image: linear-gradient(rgba(8,12,20,0.5), rgba(8,12,20,0.5)); border: 1px solid var(--line); }
+
+    /* ---- hourly detail table ---- */
+    .table-wrap { overflow-x: auto; }
+    #wtable table { border-collapse: collapse; width: 100%; font-family: var(--font-mono); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+    #wtable th, #wtable td { border: 1px solid var(--line); padding: 4px 9px; text-align: right; color: var(--text); }
+    #wtable th { color: var(--muted); font-weight: 600; background: var(--panel-2); }
+    #wtable th:first-child, #wtable td:first-child { text-align: left; }
+    #wtable tbody tr:hover td { background: var(--panel-2); }
+
+    /* ---- error state ---- */
+    .err {
+      color: #ffd7d9; background: rgba(242,97,105,0.1); padding: 0.9rem 1rem;
+      border: 1px solid rgba(242,97,105,0.4); border-radius: 8px; font-size: 0.85rem;
+    }
+
+    /* ---- footer ---- */
+    .foot {
+      display: flex; flex-wrap: wrap; gap: 0.4rem 1.5rem; justify-content: space-between;
+      border-top: 1px solid var(--line); padding-top: 1rem; margin-top: 0.5rem;
+      font-family: var(--font-mono); font-size: 0.7rem; color: var(--faint); letter-spacing: 0.02em;
+    }
+
+    /* ---- focus + motion floor ---- */
+    a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible {
+      outline: 2px solid var(--accent); outline-offset: 2px;
+    }
+    .panel, .masthead { animation: rise 0.5s cubic-bezier(0.22,0.61,0.36,1) both; }
+    .console > *:nth-child(2) { animation-delay: 0.04s; }
+    .console > *:nth-child(3) { animation-delay: 0.08s; }
+    .console > *:nth-child(4) { animation-delay: 0.12s; }
+    .console > *:nth-child(5) { animation-delay: 0.16s; }
+    .console > *:nth-child(6) { animation-delay: 0.20s; }
+    .console > *:nth-child(7) { animation-delay: 0.24s; }
+    @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) {
+      .panel, .masthead { animation: none; }
+      * { scroll-behavior: auto; }
+    }
+    @media (max-width: 560px) {
+      .masthead { align-items: stretch; }
+      #locbar { width: 100%; }
+      #locbar select, #locbar input { flex: 1 1 auto; }
+    }
   </style>
   <link rel="stylesheet" href="./vendor/leaflet/leaflet.css">
   <script src="./vendor/leaflet/leaflet.js"></script>
 </head>
 <body>
-  <div id="locbar">
-    <select id="locsel" aria-label="Saved locations"></select>
-    <input id="locq" type="text" placeholder="Search city…" aria-label="Search city">
-    <button id="locsearch">Search</button>
-    <button id="locremove" title="Remove current location">✕</button>
-    <div id="picks"></div>
-  </div>
-  <div id="alerts"></div>
-  <h2 id="h-radar" data-metric="Radar" style="font-size:1.1rem;">Radar</h2>
-  <div class="radar-controls">
-    <button id="radar-play">▶ Play</button>
-    <span id="radar-time" class="sub">now</span>
-  </div>
-  <div id="radar-map"></div>
-  <input id="radar-scrub" type="range" min="0" max="10" value="10" step="1" aria-label="Radar timeline">
-  <p class="sub">NOAA NEXRAD (Iowa Environmental Mesonet) · base © OpenStreetMap · radar US only.</p>
-  <h2 id="h-matrix" data-metric="Conditions" style="font-size:1.1rem;">Conditions</h2>
-  <div class="matrix-legend">
-    <span><b>·</b> go</span> <span><b>–</b> caution</span> <span><b>✕</b> no-go</span>
-    <span class="sub">shaded = night</span>
-  </div>
-  <div id="matrix-wrap"><div id="matrix">Loading…</div></div>
-  <h1 id="h-uv" data-metric="Hourly UV Index">Hourly UV Index</h1>
-  <p class="sub">Solid = forecast UV, dashed = clear-sky. Source: Open-Meteo.</p>
-  <div id="chart">Loading…</div>
+  <div class="console">
+    <header class="masthead">
+      <div class="brand">
+        <span class="brand__lamps" aria-hidden="true">
+          <span class="lamp lamp--go"></span><span class="lamp lamp--caution"></span><span class="lamp lamp--nogo"></span>
+        </span>
+        <div class="brand__name">GO<span class="slash">/</span>NO&#8209;GO</div>
+        <div class="brand__tag">Outdoor conditions console</div>
+      </div>
+      <div id="locbar">
+        <select id="locsel" aria-label="Saved locations"></select>
+        <input id="locq" type="text" placeholder="Search city…" aria-label="Search city">
+        <button id="locsearch">Search</button>
+        <button id="locremove" title="Remove current location" aria-label="Remove current location">✕</button>
+        <div id="picks"></div>
+      </div>
+    </header>
 
-  <h2 id="h-temp" data-metric="Temperature" style="font-size:1.1rem;margin-top:2rem;">Temperature</h2>
-  <div id="temp">Loading…</div>
-  <h2 id="h-precip" data-metric="Precipitation" style="font-size:1.1rem;margin-top:1.5rem;">Precipitation</h2>
-  <p class="sub">Bars = chance of rain (%), line = hourly amount (in).</p>
-  <div id="precip">Loading…</div>
-  <h2 style="font-size:1.1rem;margin-top:1.5rem;">Hourly detail</h2>
-  <div id="wtable">Loading…</div>
+    <div id="alerts"></div>
+
+    <section class="panel panel--hero">
+      <div class="panel__head">
+        <h2 class="panel__title" id="h-radar" data-metric="Radar">Radar</h2>
+        <div class="radar-controls">
+          <button id="radar-play" class="transport">▶ Play</button>
+          <span id="radar-time" class="readout">now</span>
+        </div>
+      </div>
+      <div class="screen screen--map"><div id="radar-map"></div></div>
+      <input id="radar-scrub" type="range" min="0" max="10" value="10" step="1" aria-label="Radar timeline">
+      <p class="cap cap--foot">NOAA NEXRAD (Iowa Environmental Mesonet) · base © OpenStreetMap · radar US only.</p>
+    </section>
+
+    <section class="panel">
+      <div class="panel__head">
+        <h2 class="panel__title" id="h-matrix" data-metric="Conditions">Conditions</h2>
+        <div class="legend">
+          <span class="key"><span class="chip chip--go"></span>go</span>
+          <span class="key"><span class="chip chip--caution"></span>caution</span>
+          <span class="key"><span class="chip chip--nogo"></span>no&#8209;go</span>
+          <span class="key"><span class="chip chip--night"></span>night</span>
+        </div>
+      </div>
+      <div id="matrix-wrap"><div id="matrix">Loading…</div></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel__head"><h2 class="panel__title" id="h-uv" data-metric="Hourly UV Index">Hourly UV Index</h2></div>
+      <p class="cap">Solid = forecast UV, dashed = clear&#8209;sky. Source: Open&#8209;Meteo.</p>
+      <div class="screen"><div id="chart">Loading…</div></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel__head"><h2 class="panel__title" id="h-temp" data-metric="Temperature">Temperature</h2></div>
+      <div class="screen"><div id="temp">Loading…</div></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel__head"><h2 class="panel__title" id="h-precip" data-metric="Precipitation">Precipitation</h2></div>
+      <p class="cap">Bars = chance of rain (%), line = hourly amount (in).</p>
+      <div class="screen"><div id="precip">Loading…</div></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel__head"><h2 class="panel__title">Hourly detail</h2></div>
+      <div class="table-wrap"><div id="wtable">Loading…</div></div>
+    </section>
+
+    <footer class="foot">
+      <span>Data · Open-Meteo · NWS · NOAA NEXRAD/IEM · OpenStreetMap</span>
+      <span>Local time · today only</span>
+    </footer>
+  </div>
   <script type="module">
     import { filterToday, buildSvg, locationToday, todayIndices, buildTempSvg, buildPrecipSvg, buildWeatherTable,
              parseGeocode, addLocation, removeLocation, sameLoc, validateState, seedState, buildMatrix,
@@ -149,6 +371,17 @@
       return { aq, fc, alerts: parseAlerts(alJson || {}) };
     }
 
+    // Signature: mark the current location-local hour column across every matrix row (the NOW playhead).
+    function markNowColumn(el, hours, offsetSeconds) {
+      const nowHour = new Date(Date.now() + offsetSeconds * 1000).getUTCHours();
+      const col = hours.findIndex((h) => h.hour === nowHour);
+      if (col < 0) return;
+      for (const row of el.querySelectorAll('tr')) {
+        const cell = row.children[col + 1]; // +1 skips the leading metric/rowlabel cell
+        if (cell) cell.classList.add('nowcol');
+      }
+    }
+
     async function renderMatrix(loc, token) {
       const el = document.getElementById('matrix');
       try {
@@ -189,6 +422,7 @@
         }
         if (!hours.length) { el.textContent = 'No conditions data for today yet.'; return; }
         el.innerHTML = buildMatrix(hours);
+        markNowColumn(el, hours, offset);
       } catch (e) {
         if (token !== renderToken) return;
         console.error(e);
