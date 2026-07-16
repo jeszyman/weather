@@ -207,6 +207,16 @@
       box-shadow: inset 1px 0 0 var(--accent), inset -1px 0 0 var(--accent);
     }
     table.matrix th.nowcol { color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
+    /* best-window column: a soft go-green frame around the recommended hour */
+    table.matrix td.bestcol { box-shadow: inset 0 0 0 2px var(--go); }
+    table.matrix td.bestcol.nowcol { box-shadow: inset 0 0 0 2px var(--go), inset 2px 0 0 var(--accent), inset -2px 0 0 var(--accent); }
+    /* clickable cells (metrics with a detail panel) get a pointer + subtle lift on hover */
+    table.matrix td[data-panel] { cursor: pointer; }
+    table.matrix td[data-panel]:hover { filter: brightness(1.12); outline: 1px solid rgba(255,255,255,0.5); }
+    .best-tag {
+      font-family: var(--font-mono); font-size: 0.72rem; color: var(--go);
+      letter-spacing: 0.02em; white-space: nowrap; font-variant-numeric: tabular-nums;
+    }
     .legend {
       display: flex; flex-wrap: wrap; gap: 0.35rem 0.9rem; align-items: center;
       font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted);
@@ -234,10 +244,10 @@
 
     /* ---- footer ---- */
     .foot {
-      display: flex; flex-wrap: wrap; gap: 0.4rem 1.5rem; justify-content: space-between;
       border-top: 1px solid var(--line); padding-top: 1rem; margin-top: 0.5rem;
-      font-family: var(--font-mono); font-size: 0.7rem; color: var(--faint); letter-spacing: 0.02em;
     }
+    .foot__sources { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.72rem; color: var(--faint); line-height: 1.45; }
+    .foot__sources b { color: var(--muted); font-weight: 600; }
 
     /* ---- focus + motion floor ---- */
     a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible {
@@ -308,6 +318,7 @@
     <section class="panel">
       <div class="panel__head">
         <h2 class="panel__title" id="h-matrix" data-metric="Conditions">Conditions</h2>
+        <span id="best-hour" class="best-tag"></span>
         <div class="legend">
           <span class="key"><span class="chip chip--go"></span>go</span>
           <span class="key"><span class="chip chip--caution"></span>caution</span>
@@ -316,6 +327,7 @@
         </div>
       </div>
       <div id="matrix-wrap"><div id="matrix">Loading…</div></div>
+      <p class="cap cap--foot">Tap a cell to jump to its detail. Best window = lowest combined risk in daylight.</p>
     </section>
 
     <section class="panel panel--hero">
@@ -353,15 +365,19 @@
     </details>
 
     <footer class="foot">
-      <span>Forecast · Open-Meteo · Alerts · NWS · Radar · NOAA NEXRAD via IEM · Base map · OpenStreetMap</span>
-      <span>Local time · radar US only</span>
+      <div class="foot__sources">
+        <span><b>Hourly forecast</b> (UV, air quality, temperature, precipitation, wind, storm risk) — Open-Meteo, blending NOAA/NWS &amp; ECMWF models.</span>
+        <span><b>Watches &amp; warnings</b> — U.S. National Weather Service active alerts (api.weather.gov).</span>
+        <span><b>Radar</b> — NOAA NEXRAD base reflectivity composite via Iowa Environmental Mesonet; observed, last ~50&nbsp;min, CONUS only.</span>
+        <span><b>Base map</b> — © OpenStreetMap contributors. Times are location-local.</span>
+      </div>
     </footer>
   </div>
   <script type="module">
     import { filterToday, buildSvg, locationToday, todayIndices, buildTempSvg, buildPrecipSvg, buildWeatherTable,
              parseGeocode, addLocation, removeLocation, sameLoc, validateState, seedState, buildMatrix,
              parseAlerts, convectiveHours, renderAlertBanner, radarFrames, frameLabel,
-             dateForOffset, dayLabel } from './uv-core.js';
+             dateForOffset, dayLabel, bestHour } from './uv-core.js';
 
     const MAX_DAY = 6;   // Open-Meteo returns 7 days (0..6)
     let dayOffset = 0;
@@ -448,6 +464,33 @@
       }
     }
 
+    // Highlight the lowest-penalty daylight hour column + label it in the panel head.
+    function markBestHour(el, hours) {
+      const best = bestHour(hours);
+      const tag = document.getElementById('best-hour');
+      if (!best) { if (tag) tag.textContent = ''; return; }
+      const col = hours.findIndex((h) => h.hour === best.hour);
+      if (col >= 0) {
+        for (const row of el.querySelectorAll('tr')) {
+          const cell = row.children[col + 1];
+          if (cell) cell.classList.add('bestcol');
+        }
+      }
+      if (tag) tag.textContent = `Best window · ${String(best.hour).padStart(2, '0')}:00`;
+    }
+
+    // Clicking a cell opens + scrolls to its metric's detail panel.
+    function wireMatrixClicks(el) {
+      el.addEventListener('click', (e) => {
+        const td = e.target.closest('td[data-panel]');
+        if (!td) return;
+        const head = document.getElementById(td.dataset.panel);
+        const panel = head && head.closest('details.dpanel');
+        if (panel) panel.open = true;
+        (panel || head)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
+
     async function renderMatrix(loc, token) {
       const el = document.getElementById('matrix');
       try {
@@ -489,6 +532,8 @@
         if (!hours.length) { el.textContent = 'No conditions data for today yet.'; return; }
         el.innerHTML = buildMatrix(hours);
         if (dayOffset === 0) markNowColumn(el, hours, offset); // "now" only exists on today
+        markBestHour(el, hours);
+        wireMatrixClicks(el);
       } catch (e) {
         if (token !== renderToken) return;
         console.error(e);
@@ -593,9 +638,20 @@
     }
 
     function renderRadar(loc) {
+      // Radar is live/observed — it has no future. Blank the panel when viewing any day but today.
+      const section = document.getElementById('radar-map')?.closest('section');
+      if (dayOffset !== 0) {
+        if (radar && radar.playing) toggleRadarPlay(); // stop the loop while hidden
+        if (section) section.style.display = 'none';
+        return;
+      }
+      if (section) section.style.display = '';
       try {
         if (!radar) { initRadar(loc); }
-        else { radar.map.setView([loc.lat, loc.lon]); radar.marker.setLatLng([loc.lat, loc.lon]); }
+        else {
+          radar.map.setView([loc.lat, loc.lon]); radar.marker.setLatLng([loc.lat, loc.lon]);
+          requestAnimationFrame(() => { try { radar.map.invalidateSize(); } catch (_) {} }); // re-measure after un-hide
+        }
       } catch (e) { console.error('radar', e); }
     }
 

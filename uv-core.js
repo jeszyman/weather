@@ -276,27 +276,53 @@ export function classifyStorm(code, cape) {
 }
 
 const GLYPH = { go: '·', caution: '–', nogo: '✕' };
+const STATE_PENALTY = { go: 0, caution: 1, nogo: 4 };
+
+// The six matrix rows. `panel` names the detail section a cell links to (null = no dedicated panel).
+const MATRIX_ROWS = [
+  { label: 'UV', panel: 'h-uv', fn: (h) => classifyUV(h.uv) },
+  { label: 'Air quality', panel: null, fn: (h) => classifyAQI(h.aqi) },
+  { label: 'Thunderstorm', panel: 'h-radar', fn: (h) => classifyStorm(h.code, h.cape) },
+  { label: 'Thermal', panel: 'h-temp', fn: (h) => classifyThermal(h.appT) },
+  { label: 'Wind gusts', panel: null, fn: (h) => classifyGust(h.gust) },
+  { label: 'Precip', panel: 'h-precip', fn: (h) => classifyPrecip(h.precip) },
+];
+
+// State of one row at one hour, honoring the NWS storm-warning override.
+function cellState(row, h) {
+  if (row.label === 'Thunderstorm' && h.stormWarning === true) return 'nogo';
+  return row.fn(h);
+}
+
+// Summed penalty across all six metrics for one hour (go 0, caution 1, nogo 4).
+export function hourScore(h) {
+  return MATRIX_ROWS.reduce((sum, row) => sum + STATE_PENALTY[cellState(row, h)], 0);
+}
+
+// The lowest-penalty daylight hour; returns {hour, score} or null if no daytime hours.
+// Ties break toward the earlier hour.
+export function bestHour(hours) {
+  let best = null;
+  for (const h of hours) {
+    if (h.isDay === 0) continue;
+    const score = hourScore(h);
+    if (best === null || score < best.score) best = { hour: h.hour, score };
+  }
+  return best;
+}
 
 export function buildMatrix(hours) {
-  const rows = [
-    { label: 'UV', fn: (h) => classifyUV(h.uv) },
-    { label: 'Air quality', fn: (h) => classifyAQI(h.aqi) },
-    { label: 'Thunderstorm', fn: (h) => classifyStorm(h.code, h.cape) },
-    { label: 'Thermal', fn: (h) => classifyThermal(h.appT) },
-    { label: 'Wind gusts', fn: (h) => classifyGust(h.gust) },
-    { label: 'Precip', fn: (h) => classifyPrecip(h.precip) },
-  ];
   const pad = (n) => String(n).padStart(2, '0');
   const head = '<tr><th class="rowlabel">Metric</th>' +
     hours.map((h) => `<th>${pad(h.hour)}</th>`).join('') + '</tr>';
-  const body = rows.map((r) => {
+  const body = MATRIX_ROWS.map((r) => {
     const cells = hours.map((h) => {
-      const override = r.label === 'Thunderstorm' && h.stormWarning === true;
-      const st = override ? 'nogo' : r.fn(h);
-      const note = override ? ' (NWS warning)' : '';
+      const st = cellState(r, h);
+      const note = (r.label === 'Thunderstorm' && h.stormWarning === true) ? ' (NWS warning)' : '';
       const cls = st + (h.isDay === 0 ? ' night' : '');
       const label = `${r.label} ${pad(h.hour)}:00: ${st}${note}`;
-      return `<td class="${cls}" title="${label}" aria-label="${label}">${GLYPH[st]}</td>`;
+      const panelAttr = r.panel ? ` data-panel="${r.panel}"` : '';
+      return `<td class="${cls}" title="${label}" aria-label="${label}" data-hour="${h.hour}"${panelAttr}>${GLYPH[st]}</td>`;
     }).join('');
     return `<tr><th class="rowlabel">${r.label}</th>${cells}</tr>`;
   }).join('');
