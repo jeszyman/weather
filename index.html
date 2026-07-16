@@ -39,6 +39,7 @@
     #radar-map { height: 360px; border: 1px solid #eee; border-radius: 6px; }
     .radar-controls { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 0.4rem; }
     #radar-play { font-size: 0.9rem; padding: 4px 10px; cursor: pointer; }
+    #radar-scrub { width: 100%; margin: 6px 0 2px; cursor: pointer; accent-color: #c62828; }
   </style>
   <link rel="stylesheet" href="./vendor/leaflet/leaflet.css">
   <script src="./vendor/leaflet/leaflet.js"></script>
@@ -58,6 +59,7 @@
     <span id="radar-time" class="sub">now</span>
   </div>
   <div id="radar-map"></div>
+  <input id="radar-scrub" type="range" min="0" max="10" value="10" step="1" aria-label="Radar timeline">
   <p class="sub">NOAA NEXRAD (Iowa Environmental Mesonet) · base © OpenStreetMap · radar US only.</p>
   <h2 id="h-matrix" data-metric="Conditions" style="font-size:1.1rem;">Conditions</h2>
   <div class="matrix-legend">
@@ -264,6 +266,8 @@
         const clock = new Date(Date.now() - off * 60000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
         t.textContent = `${clock} · ${radar.layers[i].label}`;
       }
+      const scrub = document.getElementById('radar-scrub');
+      if (scrub && Number(scrub.value) !== i) scrub.value = String(i);
     }
 
     function toggleRadarPlay() {
@@ -380,6 +384,11 @@
     document.getElementById('locsearch').addEventListener('click', doSearch);
     qEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
     document.getElementById('radar-play').addEventListener('click', toggleRadarPlay);
+    document.getElementById('radar-scrub').addEventListener('input', (e) => {
+      if (!radar) return;
+      if (radar.playing) toggleRadarPlay(); // dragging pauses the loop
+      showFrame(Number(e.target.value));
+    });
 
     rebuildSelect();
     renderAll();
