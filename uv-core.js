@@ -199,6 +199,23 @@ export function parseGeocode(json) {
   return out;
 }
 
+export function seedState() {
+  return { v: 1, locations: [{ name: 'Olivette, MO', lat: 38.67, lon: -90.37 }], activeIdx: 0 };
+}
+
+export function validateState(raw) {
+  try {
+    const s = JSON.parse(raw);
+    const okLoc = (l) => l && typeof l.name === 'string' && Number.isFinite(l.lat) && Number.isFinite(l.lon);
+    if (s && s.v === 1 && Array.isArray(s.locations) && s.locations.length > 0 &&
+        s.locations.every(okLoc) && Number.isInteger(s.activeIdx) &&
+        s.activeIdx >= 0 && s.activeIdx < s.locations.length) {
+      return s;
+    }
+  } catch (_) { /* fall through */ }
+  return seedState();
+}
+
 const r4 = (n) => Math.round(n * 1e4) / 1e4;
 export function sameLoc(a, b) { return r4(a.lat) === r4(b.lat) && r4(a.lon) === r4(b.lon); }
 export function addLocation(list, loc) {
