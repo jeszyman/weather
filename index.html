@@ -13,9 +13,22 @@
     table { border-collapse: collapse; font-size: 0.85rem; width: 100%; }
     th, td { border: 1px solid #eee; padding: 2px 8px; text-align: right; }
     th:first-child, td:first-child { text-align: left; }
+    #locbar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 1rem; }
+    #locbar select, #locbar input, #locbar button { font-size: 0.9rem; padding: 4px 8px; }
+    #picks { flex-basis: 100%; }
+    #picks button { display: block; width: 100%; text-align: left; padding: 6px 8px; margin: 2px 0; border: 1px solid #ddd; background: #fafafa; cursor: pointer; }
+    #picks button:hover { background: #eef; }
+    #picks .msg { color: #666; font-size: 0.85rem; padding: 4px 0; }
   </style>
 </head>
 <body>
+  <div id="locbar">
+    <select id="locsel" aria-label="Saved locations"></select>
+    <input id="locq" type="text" placeholder="Search city…" aria-label="Search city">
+    <button id="locsearch">Search</button>
+    <button id="locremove" title="Remove current location">✕</button>
+    <div id="picks"></div>
+  </div>
   <h1 id="h-uv" data-metric="Hourly UV Index">Hourly UV Index</h1>
   <p class="sub">Solid = forecast UV, dashed = clear-sky. Source: Open-Meteo.</p>
   <div id="chart">Loading…</div>
@@ -130,6 +143,80 @@
       renderForecast(loc, token);
     }
 
+    const selEl = document.getElementById('locsel');
+    const qEl = document.getElementById('locq');
+    const picksEl = document.getElementById('picks');
+
+    function rebuildSelect() {
+      selEl.innerHTML = '';
+      state.locations.forEach((loc, i) => {
+        const opt = document.createElement('option');
+        opt.value = String(i);
+        setText(opt, loc.name);
+        if (i === state.activeIdx) opt.selected = true;
+        selEl.appendChild(opt);
+      });
+    }
+
+    selEl.addEventListener('change', () => {
+      state.activeIdx = Number(selEl.value);
+      store.save(state);
+      renderAll();
+    });
+
+    document.getElementById('locremove').addEventListener('click', () => {
+      if (state.locations.length <= 1) {
+        picksEl.innerHTML = '';
+        const m = document.createElement('div'); m.className = 'msg';
+        setText(m, 'Keep at least one location.'); picksEl.appendChild(m);
+        return;
+      }
+      const list = removeLocation(state.locations, active());
+      state = { v: 1, locations: list, activeIdx: 0 };
+      store.save(state);
+      rebuildSelect();
+      renderAll();
+    });
+
+    function pickMessage(text) {
+      picksEl.innerHTML = '';
+      const m = document.createElement('div'); m.className = 'msg';
+      setText(m, text); picksEl.appendChild(m);
+    }
+
+    async function doSearch() {
+      const q = qEl.value.trim();
+      if (!q) { pickMessage('Type a city name to search.'); return; }
+      pickMessage('Searching…');
+      let matches = [];
+      try {
+        const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=5&language=en&format=json`);
+        matches = parseGeocode(await res.json());
+      } catch (e) { console.error(e); pickMessage('Search failed — try again.'); return; }
+      if (!matches.length) { pickMessage('No matches.'); return; }
+      picksEl.innerHTML = '';
+      for (const m of matches) {
+        const b = document.createElement('button');
+        setText(b, m.label);
+        b.addEventListener('click', () => {
+          const loc = { name: m.label, lat: m.lat, lon: m.lon };
+          const list = addLocation(state.locations, loc);
+          const idx = list.findIndex((e) => sameLoc(e, loc));
+          state = { v: 1, locations: list, activeIdx: idx >= 0 ? idx : list.length - 1 };
+          store.save(state);
+          rebuildSelect();
+          picksEl.innerHTML = '';
+          qEl.value = '';
+          renderAll();
+        });
+        picksEl.appendChild(b);
+      }
+    }
+
+    document.getElementById('locsearch').addEventListener('click', doSearch);
+    qEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
+
+    rebuildSelect();
     renderAll();
   </script>
 </body>
