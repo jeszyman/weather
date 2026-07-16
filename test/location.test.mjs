@@ -28,25 +28,39 @@ test('parseGeocode skips entries with non-finite coords or missing name', () => 
   assert.equal(out[0].name, 'Good');
 });
 
+test('parseGeocode admits lat/lon of 0 (equator / prime meridian)', () => {
+  const out = parseGeocode({ results: [{ name: 'Null Island', latitude: 0, longitude: 0 }] });
+  assert.equal(out.length, 1);
+  assert.equal(out[0].lat, 0);
+  assert.equal(out[0].lon, 0);
+});
+
 test('sameLoc compares coordinates at 4 decimals', () => {
   assert.equal(sameLoc({ lat: 38.670001, lon: -90.370001 }, { lat: 38.67, lon: -90.37 }), true);
   assert.equal(sameLoc({ lat: 38.67, lon: -90.37 }, { lat: 38.68, lon: -90.37 }), false);
 });
 
-test('addLocation appends new, dedupes same coords', () => {
+test('addLocation appends new, dedupes same coords, and does not mutate input', () => {
   const a = { name: 'A', lat: 1, lon: 2 };
   const b = { name: 'B', lat: 3, lon: 4 };
-  const list = addLocation([a], b);
+  const input = [a];
+  const list = addLocation(input, b);
   assert.equal(list.length, 2);
+  assert.equal(input.length, 1);            // input not mutated
+  assert.equal(input[0], a);
   const dup = addLocation(list, { name: 'A2', lat: 1.00001, lon: 2.00001 });
-  assert.equal(dup.length, 2); // deduped
-  assert.notEqual(list, [a]); // new array, not mutated in place
+  assert.equal(dup.length, 2);              // deduped at 4-decimals
+  assert.notEqual(dup, list);               // returns a new array even on no-op
 });
 
-test('removeLocation removes by rounded coords', () => {
+test('removeLocation removes by rounded coords and does not mutate input', () => {
   const a = { name: 'A', lat: 1, lon: 2 };
   const b = { name: 'B', lat: 3, lon: 4 };
-  const list = removeLocation([a, b], { lat: 1.00001, lon: 2 });
+  const input = [a, b];
+  const list = removeLocation(input, { lat: 1.00001, lon: 2 });
   assert.equal(list.length, 1);
   assert.equal(list[0].name, 'B');
+  assert.equal(input.length, 2);            // input not mutated
+  assert.equal(input[0], a);
+  assert.equal(input[1], b);
 });
