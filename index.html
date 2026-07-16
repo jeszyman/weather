@@ -28,6 +28,13 @@
     table.matrix td.nogo { background: #ef9a9a; }
     table.matrix td.night { box-shadow: inset 0 0 0 99px rgba(30,30,60,0.28); }
     .matrix-legend { font-size: 0.8rem; display: flex; gap: 0.75rem; margin-bottom: 0.4rem; align-items: center; }
+    #alerts { margin-bottom: 1rem; }
+    .alerts { display: flex; flex-direction: column; gap: 4px; }
+    .alert-row { display: flex; justify-content: space-between; gap: 1rem; padding: 6px 10px; border-radius: 4px; font-size: 0.9rem; }
+    .alert-row.sev-high { background: #ef9a9a; }
+    .alert-row.sev-mid { background: #ffe082; }
+    .alert-row.sev-low { background: #e0e0e0; }
+    .alert-ev { font-weight: 600; }
   </style>
 </head>
 <body>
@@ -38,6 +45,7 @@
     <button id="locremove" title="Remove current location">✕</button>
     <div id="picks"></div>
   </div>
+  <div id="alerts"></div>
   <h2 id="h-matrix" data-metric="Conditions" style="font-size:1.1rem;">Conditions</h2>
   <div class="matrix-legend">
     <span><b>·</b> go</span> <span><b>–</b> caution</span> <span><b>✕</b> no-go</span>
@@ -57,7 +65,8 @@
   <div id="wtable">Loading…</div>
   <script type="module">
     import { filterToday, buildSvg, locationToday, todayIndices, buildTempSvg, buildPrecipSvg, buildWeatherTable,
-             parseGeocode, addLocation, removeLocation, sameLoc, validateState, seedState, buildMatrix } from './uv-core.js';
+             parseGeocode, addLocation, removeLocation, sameLoc, validateState, seedState, buildMatrix,
+             parseAlerts, convectiveHours, renderAlertBanner } from './uv-core.js';
 
     const LS_KEY = 'weather.locations.v1';
     let mem = null; // in-memory fallback when localStorage throws
@@ -107,7 +116,12 @@
     async function fetchMatrix(lat, lon) {
       const aqURL = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=uv_index,us_aqi&timezone=auto`;
       const fcURL = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=cape,weather_code,wind_gusts_10m,apparent_temperature,precipitation,is_day&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=auto`;
-      const [aqRes, fcRes] = await Promise.all([fetch(aqURL), fetch(fcURL)]);
+      const alURL = `https://api.weather.gov/alerts/active?point=${lat},${lon}`;
+      const [aqRes, fcRes, alJson] = await Promise.all([
+        fetch(aqURL),
+        fetch(fcURL),
+        fetch(alURL).then((r) => (r.ok ? r.json() : null)).catch(() => null), // NON-FATAL
+      ]);
       if (!aqRes.ok || !fcRes.ok) throw new Error(`HTTP ${aqRes.status}/${fcRes.status}`);
       const [aq, fc] = await Promise.all([aqRes.json(), fcRes.json()]);
       if (!aq.hourly || !Array.isArray(aq.hourly.time) || typeof aq.utc_offset_seconds !== 'number') throw new Error('malformed air-quality');
@@ -117,14 +131,19 @@
       const fcOk = ['cape', 'weather_code', 'wind_gusts_10m', 'apparent_temperature', 'precipitation', 'is_day'].every((k) =>
         Array.isArray(fc.hourly[k]) && fc.hourly[k].length === fc.hourly.time.length);
       if (!aqOk || !fcOk) throw new Error('malformed matrix data');
-      return { aq, fc };
+      return { aq, fc, alerts: parseAlerts(alJson || {}) };
     }
 
     async function renderMatrix(loc, token) {
       const el = document.getElementById('matrix');
       try {
-        const { aq, fc } = await fetchMatrix(loc.lat, loc.lon);
+        const { aq, fc, alerts } = await fetchMatrix(loc.lat, loc.lon);
         if (token !== renderToken) return;
+        const offset = fc.utc_offset_seconds;
+        const todayStr = locationToday(Date.now(), offset);
+        const warnHours = convectiveHours(alerts, todayStr, offset);
+        const alertsEl = document.getElementById('alerts');
+        alertsEl.innerHTML = renderAlertBanner(alerts); // safe: renderAlertBanner escapes all dynamic text
         const aqIdx = todayIndices(aq.hourly.time, locationToday(Date.now(), aq.utc_offset_seconds));
         const fcIdx = todayIndices(fc.hourly.time, locationToday(Date.now(), fc.utc_offset_seconds));
         // Align by hour-of-day: build a lookup from the forecast slice keyed by HH.
@@ -146,6 +165,7 @@
             gust: fc.hourly.wind_gusts_10m[fi],
             appT: fc.hourly.apparent_temperature[fi],
             precip: fc.hourly.precipitation[fi],
+            stormWarning: warnHours.has(key),
           };
           const numeric = [candidate.isDay, candidate.uv, candidate.aqi, candidate.code,
             candidate.cape, candidate.gust, candidate.appT, candidate.precip];
@@ -158,6 +178,8 @@
         if (token !== renderToken) return;
         console.error(e);
         el.innerHTML = `<div class="err">Couldn't load conditions — try again later.</div>`;
+        const a = document.getElementById('alerts');
+        if (a) a.innerHTML = '';
       }
     }
 
