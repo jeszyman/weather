@@ -224,3 +224,18 @@ export function addLocation(list, loc) {
 export function removeLocation(list, loc) {
   return list.filter((e) => !sameLoc(e, loc));
 }
+
+export function classifyUV(uv) { return uv < 3 ? 'go' : uv < 8 ? 'caution' : 'nogo'; }
+export function classifyAQI(aqi) { return aqi < 51 ? 'go' : aqi < 101 ? 'caution' : 'nogo'; }
+export function classifyGust(g) { return g < 20 ? 'go' : g < 31 ? 'caution' : 'nogo'; }
+export function classifyThermal(t) {
+  if (t < 20 || t >= 100) return 'nogo';
+  if (t < 40 || t >= 85) return 'caution';
+  return 'go';
+}
+export function classifyPrecip(p) { return p <= 0 ? 'go' : p < 0.1 ? 'caution' : 'nogo'; }
+export function classifyStorm(code, cape) {
+  if (code === 95 || code === 96 || code === 99) return 'nogo';
+  if (cape >= 1000) return 'caution';
+  return 'go';
+}
