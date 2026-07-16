@@ -258,7 +258,8 @@ export function buildMatrix(hours) {
     const cells = hours.map((h) => {
       const st = r.fn(h);
       const cls = st + (h.isDay === 0 ? ' night' : '');
-      return `<td class="${cls}" title="${r.label} ${pad(h.hour)}:00: ${st}">${GLYPH[st]}</td>`;
+      const label = `${r.label} ${pad(h.hour)}:00: ${st}`;
+      return `<td class="${cls}" title="${label}" aria-label="${label}">${GLYPH[st]}</td>`;
     }).join('');
     return `<tr><th class="rowlabel">${r.label}</th>${cells}</tr>`;
   }).join('');

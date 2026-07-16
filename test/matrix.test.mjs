@@ -29,6 +29,24 @@ test('buildMatrix cells carry a colorblind glyph', () => {
   assert.match(html2, /·/);
 });
 
+test('buildMatrix caution cells emit the caution glyph', () => {
+  const html = buildMatrix([hr({ uv: 5 })]); // uv 5 -> caution
+  assert.match(html, /–/);
+});
+
+test('buildMatrix data cells carry an aria-label matching their title', () => {
+  const html = buildMatrix([hr({ hour: 13, uv: 1 })]);
+  assert.match(html, /aria-label="UV 13:00: /);
+  const tds = html.match(/<td[^>]*>/g) || [];
+  assert.ok(tds.length > 0);
+  for (const td of tds) {
+    const titleMatch = td.match(/title="([^"]*)"/);
+    const ariaMatch = td.match(/aria-label="([^"]*)"/);
+    assert.ok(titleMatch && ariaMatch, `cell missing title or aria-label: ${td}`);
+    assert.equal(ariaMatch[1], titleMatch[1]);
+  }
+});
+
 test('buildMatrix storm row uses code-beats-cape', () => {
   const html = buildMatrix([hr({ hour: 14, code: 95, cape: 0 })]);
   assert.match(html, /title="Thunderstorm 14:00: nogo"/);
