@@ -334,3 +334,16 @@ export function renderAlertBanner(alerts) {
   }).join('');
   return `<div class="alerts">${rows}</div>`;
 }
+
+export function frameLabel(offsetMin) {
+  return offsetMin === 0 ? 'now' : `-${offsetMin} min`;
+}
+
+export function radarFrames() {
+  const frames = [];
+  for (let offsetMin = 50; offsetMin >= 0; offsetMin -= 5) {
+    const suffix = offsetMin === 0 ? '' : `-m${String(offsetMin).padStart(2, '0')}m`;
+    frames.push({ suffix, offsetMin, label: frameLabel(offsetMin), layer: `nexrad-n0q-900913${suffix}` });
+  }
+  return frames;
+}
