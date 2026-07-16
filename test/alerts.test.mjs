@@ -4,8 +4,8 @@ import { parseAlerts, alertSeverityRank, isConvectiveAlert, convectiveHours } fr
 
 test('parseAlerts maps properties and defaults missing severity', () => {
   const json = { features: [
-    { properties: { event: 'Severe Thunderstorm Warning', severity: 'Severe', onset: '2026-07-16T13:00:00-05:00', ends: '2026-07-16T14:00:00-05:00', headline: 'x' } },
-    { properties: { event: 'Heat Advisory', onset: null, ends: null, headline: 'y' } }, // no severity
+    { properties: { event: 'Severe Thunderstorm Warning', severity: 'Severe', onset: '2026-07-16T13:00:00-05:00', ends: '2026-07-16T14:00:00-05:00' } },
+    { properties: { event: 'Heat Advisory', onset: null, ends: null } }, // no severity
   ] };
   const out = parseAlerts(json);
   assert.equal(out.length, 2);

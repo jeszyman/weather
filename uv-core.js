@@ -280,7 +280,6 @@ export function parseAlerts(json) {
       onset: p.onset || null,
       ends: p.ends || null,
       expires: p.expires || null,
-      headline: typeof p.headline === 'string' ? p.headline : '',
     });
   }
   return out;
