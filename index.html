@@ -252,13 +252,18 @@
         return { ...f, tileLayer: tl };
       });
       radar = { map, marker, layers, playing: false, timer: null, idx: layers.length - 1 };
+      toggleRadarPlay(); // autoplay the loop on first load
     }
 
     function showFrame(i) {
       radar.layers.forEach((l, j) => l.tileLayer.setOpacity(j === i ? 0.6 : 0));
       radar.idx = i;
       const t = document.getElementById('radar-time');
-      if (t) t.textContent = radar.layers[i].label;
+      if (t) {
+        const off = radar.layers[i].offsetMin;
+        const clock = new Date(Date.now() - off * 60000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        t.textContent = `${clock} · ${radar.layers[i].label}`;
+      }
     }
 
     function toggleRadarPlay() {
