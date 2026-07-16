@@ -16,51 +16,53 @@
   </style>
 </head>
 <body>
-  <h1>Hourly UV Index — Olivette, MO</h1>
+  <h1 id="h-uv" data-metric="Hourly UV Index">Hourly UV Index</h1>
   <p class="sub">Solid = forecast UV, dashed = clear-sky. Source: Open-Meteo.</p>
   <div id="chart">Loading…</div>
-  <h2 style="font-size:1.1rem;margin-top:2rem;">Temperature — Olivette, MO</h2>
+
+  <h2 id="h-temp" data-metric="Temperature" style="font-size:1.1rem;margin-top:2rem;">Temperature</h2>
   <div id="temp">Loading…</div>
-  <h2 style="font-size:1.1rem;margin-top:1.5rem;">Precipitation — Olivette, MO</h2>
+  <h2 id="h-precip" data-metric="Precipitation" style="font-size:1.1rem;margin-top:1.5rem;">Precipitation</h2>
   <p class="sub">Bars = chance of rain (%), line = hourly amount (in).</p>
   <div id="precip">Loading…</div>
   <h2 style="font-size:1.1rem;margin-top:1.5rem;">Hourly detail</h2>
   <div id="wtable">Loading…</div>
   <script type="module">
-    import { filterToday, buildSvg, locationToday, todayIndices, buildTempSvg, buildPrecipSvg, buildWeatherTable } from './uv-core.js';
+    import { filterToday, buildSvg, locationToday, todayIndices, buildTempSvg, buildPrecipSvg, buildWeatherTable,
+             parseGeocode, addLocation, removeLocation, sameLoc, validateState, seedState } from './uv-core.js';
 
-    const LAT = 38.67, LON = -90.37;
-    const URL = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${LAT}&longitude=${LON}&hourly=uv_index,uv_index_clear_sky&timezone=auto`;
+    const LS_KEY = 'weather.locations.v1';
+    let mem = null; // in-memory fallback when localStorage throws
+    const store = {
+      load() {
+        try { return validateState(localStorage.getItem(LS_KEY)); }
+        catch (_) { return mem ? validateState(JSON.stringify(mem)) : seedState(); }
+      },
+      save(state) {
+        mem = state;
+        try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (_) { /* in-memory only */ }
+      },
+    };
 
-    async function fetchUV() {
-      const res = await fetch(URL);
+    let state = store.load();
+    const active = () => state.locations[state.activeIdx];
+
+    function setText(el, str) { el.textContent = str; }
+
+    let renderToken = 0;
+
+    async function fetchUV(lat, lon) {
+      const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=uv_index,uv_index_clear_sky&timezone=auto`;
+      const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      if (!json.hourly || !Array.isArray(json.hourly.time) || typeof json.utc_offset_seconds !== 'number') {
-        throw new Error('malformed response');
-      }
-      return json;
+      const j = await res.json();
+      if (!j.hourly || !Array.isArray(j.hourly.time) || typeof j.utc_offset_seconds !== 'number') throw new Error('malformed response');
+      return j;
     }
 
-    async function main() {
-      const el = document.getElementById('chart');
-      try {
-        const j = await fetchUV();
-        const h = j.hourly;
-        const points = filterToday(h.time, h.uv_index, h.uv_index_clear_sky, locationToday(Date.now(), j.utc_offset_seconds));
-        if (!points.length) { el.textContent = 'No UV data for today yet.'; return; }
-        el.innerHTML = buildSvg(points);
-      } catch (e) {
-        console.error(e);
-        el.innerHTML = `<div class="err">Couldn't load UV data — try again later.</div>`;
-      }
-    }
-    main();
-
-    const FURL = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&hourly=temperature_2m,precipitation_probability,precipitation&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=auto`;
-
-    async function fetchForecast() {
-      const res = await fetch(FURL);
+    async function fetchForecast(lat, lon) {
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,precipitation_probability,precipitation&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=auto`;
+      const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const j = await res.json();
       const h = j.hourly;
@@ -74,12 +76,28 @@
       return j;
     }
 
-    async function mainForecast() {
+    async function renderUV(loc, token) {
+      const el = document.getElementById('chart');
+      try {
+        const j = await fetchUV(loc.lat, loc.lon);
+        if (token !== renderToken) return;
+        const pts = filterToday(j.hourly.time, j.hourly.uv_index, j.hourly.uv_index_clear_sky, locationToday(Date.now(), j.utc_offset_seconds));
+        el.innerHTML = pts.length ? buildSvg(pts) : '';
+        if (!pts.length) el.textContent = 'No UV data for today yet.';
+      } catch (e) {
+        if (token !== renderToken) return;
+        console.error(e);
+        el.innerHTML = `<div class="err">Couldn't load UV data — try again later.</div>`;
+      }
+    }
+
+    async function renderForecast(loc, token) {
       const tEl = document.getElementById('temp');
       const pEl = document.getElementById('precip');
       const wEl = document.getElementById('wtable');
       try {
-        const j = await fetchForecast();
+        const j = await fetchForecast(loc.lat, loc.lon);
+        if (token !== renderToken) return;
         const h = j.hourly;
         const idx = todayIndices(h.time, locationToday(Date.now(), j.utc_offset_seconds));
         if (!idx.length) { tEl.textContent = pEl.textContent = wEl.textContent = 'No forecast for today yet.'; return; }
@@ -90,12 +108,29 @@
         pEl.innerHTML = buildPrecipSvg(precip);
         wEl.innerHTML = buildWeatherTable(all);
       } catch (e) {
+        if (token !== renderToken) return;
         console.error(e);
-        const msg = `<div class="err">Couldn't load forecast — try again later.</div>`;
-        tEl.innerHTML = msg; pEl.innerHTML = ''; wEl.innerHTML = '';
+        tEl.innerHTML = `<div class="err">Couldn't load forecast — try again later.</div>`;
+        pEl.innerHTML = ''; wEl.innerHTML = '';
       }
     }
-    mainForecast();
+
+    function updateHeadings(loc) {
+      for (const id of ['h-uv', 'h-temp', 'h-precip']) {
+        const el = document.getElementById(id);
+        if (el) setText(el, `${el.dataset.metric} — ${loc.name}`);
+      }
+    }
+
+    function renderAll() {
+      const token = ++renderToken;
+      const loc = active();
+      updateHeadings(loc);
+      renderUV(loc, token);
+      renderForecast(loc, token);
+    }
+
+    renderAll();
   </script>
 </body>
 </html>
