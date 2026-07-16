@@ -52,6 +52,14 @@ test('buildMatrix storm row uses code-beats-cape', () => {
   assert.match(html, /title="Thunderstorm 14:00: nogo"/);
 });
 
+test('buildMatrix stormWarning forces the storm cell to nogo', () => {
+  const base = { hour: 14, isDay: 1, uv: 1, aqi: 20, code: 0, cape: 0, gust: 5, appT: 60, precip: 0 };
+  const normal = buildMatrix([base]);
+  assert.match(normal, /title="Thunderstorm 14:00: go"/); // code0/cape0 -> go normally
+  const warned = buildMatrix([{ ...base, stormWarning: true }]);
+  assert.match(warned, /title="Thunderstorm 14:00: nogo \(NWS warning\)"/);
+});
+
 test('buildMatrix empty hours does not throw', () => {
   const html = buildMatrix([]);
   assert.match(html, /^<table[\s\S]*<\/table>$/);

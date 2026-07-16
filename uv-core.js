@@ -256,9 +256,11 @@ export function buildMatrix(hours) {
     hours.map((h) => `<th>${pad(h.hour)}</th>`).join('') + '</tr>';
   const body = rows.map((r) => {
     const cells = hours.map((h) => {
-      const st = r.fn(h);
+      const override = r.label === 'Thunderstorm' && h.stormWarning === true;
+      const st = override ? 'nogo' : r.fn(h);
+      const note = override ? ' (NWS warning)' : '';
       const cls = st + (h.isDay === 0 ? ' night' : '');
-      const label = `${r.label} ${pad(h.hour)}:00: ${st}`;
+      const label = `${r.label} ${pad(h.hour)}:00: ${st}${note}`;
       return `<td class="${cls}" title="${label}" aria-label="${label}">${GLYPH[st]}</td>`;
     }).join('');
     return `<tr><th class="rowlabel">${r.label}</th>${cells}</tr>`;
@@ -308,4 +310,28 @@ export function convectiveHours(alerts, todayStr, offsetSeconds) {
     }
   }
   return covered;
+}
+
+function esc(s) {
+  return String(s).replace(/[<>&"']/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function alertWindow(onset, ends) {
+  const fmt = (iso) => (typeof iso === 'string' && !Number.isNaN(Date.parse(iso)) ? iso.slice(11, 16) : '');
+  const a = fmt(onset), b = fmt(ends);
+  if (!a && !b) return '';
+  return `${a || '?'}–${b || '?'}`;
+}
+
+export function renderAlertBanner(alerts) {
+  if (!alerts.length) return '';
+  const sorted = alerts.slice().sort((x, y) => alertSeverityRank(y.severity) - alertSeverityRank(x.severity));
+  const rows = sorted.map((a) => {
+    const rank = alertSeverityRank(a.severity);
+    const cls = rank >= 3 ? 'sev-high' : rank === 2 ? 'sev-mid' : 'sev-low';
+    const win = alertWindow(a.onset, a.ends);
+    return `<div class="alert-row ${cls}"><span class="alert-ev">${esc(a.event)}</span>` +
+      (win ? `<span class="alert-win">${esc(win)}</span>` : '') + '</div>';
+  }).join('');
+  return `<div class="alerts">${rows}</div>`;
 }
