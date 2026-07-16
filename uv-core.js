@@ -186,3 +186,24 @@ export function buildWeatherTable(points) {
     .join('');
   return `<table>${head}<tbody>${body}</tbody></table>`;
 }
+
+export function parseGeocode(json) {
+  const results = json && Array.isArray(json.results) ? json.results : [];
+  const out = [];
+  for (const r of results) {
+    const lat = r.latitude, lon = r.longitude;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || !r.name) continue;
+    const label = r.name + (r.admin1 ? `, ${r.admin1}` : '') + (r.country_code ? ` ${r.country_code}` : '');
+    out.push({ name: r.name, lat, lon, label });
+  }
+  return out;
+}
+
+const r4 = (n) => Math.round(n * 1e4) / 1e4;
+export function sameLoc(a, b) { return r4(a.lat) === r4(b.lat) && r4(a.lon) === r4(b.lon); }
+export function addLocation(list, loc) {
+  return list.some((e) => sameLoc(e, loc)) ? list.slice() : [...list, loc];
+}
+export function removeLocation(list, loc) {
+  return list.filter((e) => !sameLoc(e, loc));
+}
