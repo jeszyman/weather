@@ -112,7 +112,7 @@
     }
     .screen svg { display: block; }
     .screen--map { padding: 6px; }
-    #radar-map { height: clamp(280px, 46vw, 380px); border-radius: 5px; }
+    #radar-map { width: min(100%, 560px); aspect-ratio: 1 / 1; margin: 0 auto; border-radius: 5px; }
 
     /* ---- radar controls ---- */
     .radar-controls { display: flex; gap: 0.75rem; align-items: center; }
@@ -127,10 +127,45 @@
       font-family: var(--font-mono); font-size: 0.8rem; color: var(--accent);
       letter-spacing: 0.02em; font-variant-numeric: tabular-nums;
     }
+    .scrub-wrap { position: relative; margin: 0.6rem 0 0.15rem; padding-bottom: 1.2rem; }
     #radar-scrub {
-      width: 100%; margin: 0.6rem 0 0.15rem; cursor: pointer; accent-color: var(--accent);
-      height: 4px; background: transparent;
+      width: 100%; margin: 0; cursor: pointer; accent-color: var(--accent);
+      height: 4px; background: transparent; display: block;
     }
+    .scrub-time {
+      position: absolute; bottom: 0; transform: translateX(-50%);
+      font-family: var(--font-mono); font-size: 0.72rem; color: var(--accent);
+      letter-spacing: 0.02em; font-variant-numeric: tabular-nums; white-space: nowrap;
+      pointer-events: none;
+    }
+
+    /* ---- day navigation ---- */
+    .daybar { display: flex; align-items: center; justify-content: center; gap: 0.6rem; }
+    .daybar__label {
+      font-family: var(--font-mono); font-size: 0.85rem; color: var(--text);
+      letter-spacing: 0.02em; min-width: 12rem; text-align: center; font-variant-numeric: tabular-nums;
+    }
+    .daybar__label #day-loc { color: var(--muted); }
+    .daynav {
+      font-family: var(--font-mono); font-size: 0.85rem; line-height: 1;
+      background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+      border-radius: 7px; padding: 7px 12px; cursor: pointer; transition: border-color 0.15s, background 0.15s;
+    }
+    .daynav:hover:not(:disabled) { border-color: var(--accent); background: var(--panel); }
+    .daynav:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    /* ---- collapsible detail panels ---- */
+    details.dpanel > summary {
+      cursor: pointer; list-style: none; user-select: none;
+      margin-bottom: 0; /* collapsed: no head gap */
+    }
+    details.dpanel[open] > summary { margin-bottom: 0.85rem; }
+    details.dpanel > summary::-webkit-details-marker { display: none; }
+    details.dpanel > summary::after {
+      content: "▸"; color: var(--muted); font-size: 0.9rem; margin-left: auto; transition: transform 0.15s;
+    }
+    details.dpanel[open] > summary::after { transform: rotate(90deg); }
+    details.dpanel > summary .panel__title { flex: 1; }
 
     /* ---- alerts banner ---- */
     #alerts:empty { display: none; }
@@ -262,20 +297,13 @@
       </div>
     </header>
 
-    <div id="alerts"></div>
+    <div class="daybar">
+      <button id="day-prev" class="daynav" aria-label="Previous day">◀</button>
+      <div class="daybar__label"><span id="day-label">Today</span> · <span id="day-loc">Olivette, MO</span></div>
+      <button id="day-next" class="daynav" aria-label="Next day">▶</button>
+    </div>
 
-    <section class="panel panel--hero">
-      <div class="panel__head">
-        <h2 class="panel__title" id="h-radar" data-metric="Radar">Radar</h2>
-        <div class="radar-controls">
-          <button id="radar-play" class="transport">▶ Play</button>
-          <span id="radar-time" class="readout">now</span>
-        </div>
-      </div>
-      <div class="screen screen--map"><div id="radar-map"></div></div>
-      <input id="radar-scrub" type="range" min="0" max="10" value="10" step="1" aria-label="Radar timeline">
-      <p class="cap cap--foot">NOAA NEXRAD (Iowa Environmental Mesonet) · base © OpenStreetMap · radar US only.</p>
-    </section>
+    <div id="alerts"></div>
 
     <section class="panel">
       <div class="panel__head">
@@ -290,37 +318,58 @@
       <div id="matrix-wrap"><div id="matrix">Loading…</div></div>
     </section>
 
-    <section class="panel">
-      <div class="panel__head"><h2 class="panel__title" id="h-uv" data-metric="Hourly UV Index">Hourly UV Index</h2></div>
-      <p class="cap">Solid = forecast UV, dashed = clear&#8209;sky. Source: Open&#8209;Meteo.</p>
+    <section class="panel panel--hero">
+      <div class="panel__head">
+        <h2 class="panel__title" id="h-radar" data-metric="Radar">Radar</h2>
+        <button id="radar-play" class="transport">▶ Play</button>
+      </div>
+      <div class="screen screen--map"><div id="radar-map"></div></div>
+      <div class="scrub-wrap">
+        <input id="radar-scrub" type="range" min="0" max="10" value="10" step="1" aria-label="Radar timeline">
+        <span id="radar-time" class="scrub-time" aria-live="polite">now</span>
+      </div>
+    </section>
+
+    <details class="panel dpanel" open>
+      <summary class="panel__head"><h2 class="panel__title" id="h-uv" data-metric="Hourly UV Index">Hourly UV Index</h2></summary>
+      <p class="cap">Solid = forecast UV, dashed = clear&#8209;sky.</p>
       <div class="screen"><div id="chart">Loading…</div></div>
-    </section>
+    </details>
 
-    <section class="panel">
-      <div class="panel__head"><h2 class="panel__title" id="h-temp" data-metric="Temperature">Temperature</h2></div>
+    <details class="panel dpanel">
+      <summary class="panel__head"><h2 class="panel__title" id="h-temp" data-metric="Temperature">Temperature</h2></summary>
       <div class="screen"><div id="temp">Loading…</div></div>
-    </section>
+    </details>
 
-    <section class="panel">
-      <div class="panel__head"><h2 class="panel__title" id="h-precip" data-metric="Precipitation">Precipitation</h2></div>
+    <details class="panel dpanel">
+      <summary class="panel__head"><h2 class="panel__title" id="h-precip" data-metric="Precipitation">Precipitation</h2></summary>
       <p class="cap">Bars = chance of rain (%), line = hourly amount (in).</p>
       <div class="screen"><div id="precip">Loading…</div></div>
-    </section>
+    </details>
 
-    <section class="panel">
-      <div class="panel__head"><h2 class="panel__title">Hourly detail</h2></div>
+    <details class="panel dpanel">
+      <summary class="panel__head"><h2 class="panel__title">Hourly detail</h2></summary>
       <div class="table-wrap"><div id="wtable">Loading…</div></div>
-    </section>
+    </details>
 
     <footer class="foot">
-      <span>Data · Open-Meteo · NWS · NOAA NEXRAD/IEM · OpenStreetMap</span>
-      <span>Local time · today only</span>
+      <span>Forecast · Open-Meteo · Alerts · NWS · Radar · NOAA NEXRAD via IEM · Base map · OpenStreetMap</span>
+      <span>Local time · radar US only</span>
     </footer>
   </div>
   <script type="module">
     import { filterToday, buildSvg, locationToday, todayIndices, buildTempSvg, buildPrecipSvg, buildWeatherTable,
              parseGeocode, addLocation, removeLocation, sameLoc, validateState, seedState, buildMatrix,
-             parseAlerts, convectiveHours, renderAlertBanner, radarFrames, frameLabel } from './uv-core.js';
+             parseAlerts, convectiveHours, renderAlertBanner, radarFrames, frameLabel,
+             dateForOffset, dayLabel } from './uv-core.js';
+
+    const MAX_DAY = 6;   // Open-Meteo returns 7 days (0..6)
+    let dayOffset = 0;
+    // The date string (location-local) for the currently selected day, given the endpoint's utc offset.
+    const selectedDate = (offsetSeconds) => dateForOffset(Date.now(), offsetSeconds, dayOffset);
+    // Current location-local hour (0..23) when viewing today; null on other days (no "now" to mark).
+    const nowHourFor = (offsetSeconds) =>
+      dayOffset === 0 ? new Date(Date.now() + offsetSeconds * 1000).getUTCHours() : null;
 
     const LS_KEY = 'weather.locations.v1';
     let mem = null; // in-memory fallback when localStorage throws
@@ -405,12 +454,12 @@
         const { aq, fc, alerts } = await fetchMatrix(loc.lat, loc.lon);
         if (token !== renderToken) return;
         const offset = fc.utc_offset_seconds;
-        const todayStr = locationToday(Date.now(), offset);
+        const todayStr = selectedDate(offset);
         const warnHours = convectiveHours(alerts, todayStr, offset);
         const alertsEl = document.getElementById('alerts');
         alertsEl.innerHTML = renderAlertBanner(alerts); // safe: renderAlertBanner escapes all dynamic text
-        const aqIdx = todayIndices(aq.hourly.time, locationToday(Date.now(), aq.utc_offset_seconds));
-        const fcIdx = todayIndices(fc.hourly.time, locationToday(Date.now(), fc.utc_offset_seconds));
+        const aqIdx = todayIndices(aq.hourly.time, selectedDate(aq.utc_offset_seconds));
+        const fcIdx = todayIndices(fc.hourly.time, selectedDate(fc.utc_offset_seconds));
         // Align by hour-of-day: build a lookup from the forecast slice keyed by HH.
         const hh = (iso) => iso.slice(11, 13);
         const fcByHour = {};
@@ -439,7 +488,7 @@
         }
         if (!hours.length) { el.textContent = 'No conditions data for today yet.'; return; }
         el.innerHTML = buildMatrix(hours);
-        markNowColumn(el, hours, offset);
+        if (dayOffset === 0) markNowColumn(el, hours, offset); // "now" only exists on today
       } catch (e) {
         if (token !== renderToken) return;
         console.error(e);
@@ -454,8 +503,8 @@
       try {
         const j = await fetchUV(loc.lat, loc.lon);
         if (token !== renderToken) return;
-        const pts = filterToday(j.hourly.time, j.hourly.uv_index, j.hourly.uv_index_clear_sky, locationToday(Date.now(), j.utc_offset_seconds));
-        el.innerHTML = pts.length ? buildSvg(pts) : '';
+        const pts = filterToday(j.hourly.time, j.hourly.uv_index, j.hourly.uv_index_clear_sky, selectedDate(j.utc_offset_seconds));
+        el.innerHTML = pts.length ? buildSvg(pts, { nowHour: nowHourFor(j.utc_offset_seconds) }) : '';
         if (!pts.length) el.textContent = 'No UV data for today yet.';
       } catch (e) {
         if (token !== renderToken) return;
@@ -472,13 +521,14 @@
         const j = await fetchForecast(loc.lat, loc.lon);
         if (token !== renderToken) return;
         const h = j.hourly;
-        const idx = todayIndices(h.time, locationToday(Date.now(), j.utc_offset_seconds));
+        const idx = todayIndices(h.time, selectedDate(j.utc_offset_seconds));
         if (!idx.length) { tEl.textContent = pEl.textContent = wEl.textContent = 'No forecast for today yet.'; return; }
         const temp = idx.map((i) => ({ time: h.time[i], temp: h.temperature_2m[i] }));
         const precip = idx.map((i) => ({ time: h.time[i], prob: h.precipitation_probability[i], amount: h.precipitation[i] }));
         const all = idx.map((i) => ({ time: h.time[i], temp: h.temperature_2m[i], prob: h.precipitation_probability[i], amount: h.precipitation[i] }));
-        tEl.innerHTML = buildTempSvg(temp);
-        pEl.innerHTML = buildPrecipSvg(precip);
+        const nh = nowHourFor(j.utc_offset_seconds);
+        tEl.innerHTML = buildTempSvg(temp, { nowHour: nh });
+        pEl.innerHTML = buildPrecipSvg(precip, { nowHour: nh });
         wEl.innerHTML = buildWeatherTable(all);
       } catch (e) {
         if (token !== renderToken) return;
@@ -505,20 +555,25 @@
         return { ...f, tileLayer: tl };
       });
       radar = { map, marker, layers, playing: false, timer: null, idx: layers.length - 1 };
+      // aspect-ratio container height may resolve after init; force a re-measure so tiles fill the square.
+      requestAnimationFrame(() => { try { map.invalidateSize(); } catch (_) {} });
       toggleRadarPlay(); // autoplay the loop on first load
     }
 
     function showFrame(i) {
       radar.layers.forEach((l, j) => l.tileLayer.setOpacity(j === i ? 0.6 : 0));
       radar.idx = i;
+      const scrub = document.getElementById('radar-scrub');
+      if (scrub && Number(scrub.value) !== i) scrub.value = String(i);
       const t = document.getElementById('radar-time');
       if (t) {
         const off = radar.layers[i].offsetMin;
         const clock = new Date(Date.now() - off * 60000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
         t.textContent = `${clock} · ${radar.layers[i].label}`;
+        // ride the scrubber thumb: position by frame fraction, clamped so end labels stay on-panel
+        const frac = radar.layers.length > 1 ? i / (radar.layers.length - 1) : 0;
+        t.style.left = `calc(${(6 + frac * 88).toFixed(1)}%)`;
       }
-      const scrub = document.getElementById('radar-scrub');
-      if (scrub && Number(scrub.value) !== i) scrub.value = String(i);
     }
 
     function toggleRadarPlay() {
@@ -545,11 +600,18 @@
     }
 
     function updateHeadings(loc) {
+      // Panel titles are plain metric names now (location is shown once in the day bar).
       for (const id of ['h-matrix', 'h-uv', 'h-temp', 'h-precip', 'h-radar']) {
         const el = document.getElementById(id);
-        if (el) setText(el, `${el.dataset.metric} — ${loc.name}`);
+        if (el) setText(el, el.dataset.metric);
       }
-      document.title = `Weather — ${loc.name}`;
+      // Day bar: label the selected day (using UTC offset 0 for the label date is fine — it's a whole-day step) + location.
+      const dstr = dateForOffset(Date.now(), 0, dayOffset);
+      setText(document.getElementById('day-label'), dayLabel(dstr, dayOffset));
+      setText(document.getElementById('day-loc'), loc.name);
+      document.getElementById('day-prev').disabled = dayOffset <= 0;
+      document.getElementById('day-next').disabled = dayOffset >= MAX_DAY;
+      document.title = `${dayLabel(dstr, dayOffset)} · ${loc.name} — GO/NO-GO`;
     }
 
     function renderAll() {
@@ -559,7 +621,7 @@
       renderMatrix(loc, token);
       renderUV(loc, token);
       renderForecast(loc, token);
-      renderRadar(loc); // synchronous, no fetch/token needed
+      renderRadar(loc); // synchronous, live radar — independent of the selected forecast day
     }
 
     const selEl = document.getElementById('locsel');
@@ -634,6 +696,12 @@
 
     document.getElementById('locsearch').addEventListener('click', doSearch);
     qEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
+    document.getElementById('day-prev').addEventListener('click', () => {
+      if (dayOffset > 0) { dayOffset--; renderAll(); }
+    });
+    document.getElementById('day-next').addEventListener('click', () => {
+      if (dayOffset < MAX_DAY) { dayOffset++; renderAll(); }
+    });
     document.getElementById('radar-play').addEventListener('click', toggleRadarPlay);
     document.getElementById('radar-scrub').addEventListener('input', (e) => {
       if (!radar) return;

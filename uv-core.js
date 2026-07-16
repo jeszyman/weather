@@ -36,10 +36,35 @@ export function locationToday(nowMs, utcOffsetSeconds) {
   return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}`;
 }
 
+// Location-local date string for today + dayOffset days (dayOffset 0 = today).
+export function dateForOffset(nowMs, utcOffsetSeconds, dayOffset) {
+  return locationToday(nowMs + dayOffset * 86400000, utcOffsetSeconds);
+}
+
+// Short label for a date offset: 'Today', 'Tomorrow', else e.g. 'Sat Jul 19'.
+export function dayLabel(dateStr, dayOffset) {
+  if (dayOffset === 0) return 'Today';
+  if (dayOffset === 1) return 'Tomorrow';
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  const dow = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dt.getUTCDay()];
+  const mon = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][m - 1];
+  return `${dow} ${mon} ${d}`;
+}
+
 function hourOfDay(iso) { return Number(iso.slice(11, 13)); }
 
+// A vertical "current hour" marker for the hourly charts. nowHour is 0..23 (or null to omit).
+// xFn maps an hour to an x pixel; pad/height frame the plot. Returns '' when nowHour is not a finite hour.
+function nowLine(nowHour, xFn, pad, height) {
+  if (!Number.isFinite(nowHour) || nowHour < 0 || nowHour > 23) return '';
+  const nx = xFn(nowHour).toFixed(1);
+  return `<line x1="${nx}" y1="${pad}" x2="${nx}" y2="${height - pad}" stroke="#4aa8ff" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.9"/>` +
+    `<text x="${nx}" y="${pad - 4}" font-size="10" text-anchor="middle" fill="#4aa8ff">now</text>`;
+}
+
 export function buildTempSvg(points, opts = {}) {
-  const { width = 720, height = 240, pad = 40 } = opts;
+  const { width = 720, height = 240, pad = 40, nowHour = null } = opts;
   const plotW = width - 2 * pad;
   const plotH = height - 2 * pad;
   const temps = points.map((p) => p.temp);
@@ -75,12 +100,16 @@ export function buildTempSvg(points, opts = {}) {
 
   const axis = `<line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" stroke="#999"/>` +
                `<line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height - pad}" stroke="#999"/>`;
+  const axisTitles =
+    `<text x="${(pad + (width - pad) / 2).toFixed(1)}" y="${height - 4}" font-size="11" text-anchor="middle" fill="#777">hour of day</text>` +
+    `<text x="14" y="${(height / 2).toFixed(1)}" font-size="11" text-anchor="middle" fill="#777" transform="rotate(-90 14 ${(height / 2).toFixed(1)})">°F</text>`;
+  const now = nowLine(nowHour, x, pad, height);
 
-  return `<svg viewBox="0 0 ${width} ${height}" width="100%" xmlns="http://www.w3.org/2000/svg">${axis}${ticks}${poly}${labels}</svg>`;
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" xmlns="http://www.w3.org/2000/svg">${axis}${ticks}${axisTitles}${now}${poly}${labels}</svg>`;
 }
 
 export function buildSvg(points, opts = {}) {
-  const { width = 720, height = 320, pad = 40 } = opts;
+  const { width = 720, height = 320, pad = 40, nowHour = null } = opts;
   const plotW = width - 2 * pad;
   const plotH = height - 2 * pad;
   const ceiling = computeCeiling(points);
@@ -127,12 +156,16 @@ export function buildSvg(points, opts = {}) {
 
   const axis = `<line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" stroke="#999"/>` +
                `<line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height - pad}" stroke="#999"/>`;
+  const axisTitles =
+    `<text x="${(pad + (width - pad) / 2).toFixed(1)}" y="${height - 4}" font-size="11" text-anchor="middle" fill="#777">hour of day</text>` +
+    `<text x="14" y="${(height / 2).toFixed(1)}" font-size="11" text-anchor="middle" fill="#777" transform="rotate(-90 14 ${(height / 2).toFixed(1)})">UV index</text>`;
+  const now = nowLine(nowHour, x, pad, height);
 
-  return `<svg viewBox="0 0 ${width} ${height}" width="100%" xmlns="http://www.w3.org/2000/svg">${bands}${axis}${ticks}${clearLine}${uvLine}${peakLabel}</svg>`;
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" xmlns="http://www.w3.org/2000/svg">${bands}${axis}${ticks}${axisTitles}${now}${clearLine}${uvLine}${peakLabel}</svg>`;
 }
 
 export function buildPrecipSvg(points, opts = {}) {
-  const { width = 720, height = 200, pad = 40 } = opts;
+  const { width = 720, height = 200, pad = 40, nowHour = null } = opts;
   const plotW = width - 2 * pad;
   const plotH = height - 2 * pad;
   const x = (h) => pad + (h / 23) * plotW;
@@ -172,8 +205,10 @@ export function buildPrecipSvg(points, opts = {}) {
 
   const axis = `<line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" stroke="#999"/>` +
                `<line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height - pad}" stroke="#999"/>`;
+  const axisTitle = `<text x="${(pad + (width - pad) / 2).toFixed(1)}" y="${height - 4}" font-size="11" text-anchor="middle" fill="#777">hour of day</text>`;
+  const now = nowLine(nowHour, x, pad, height);
 
-  return `<svg viewBox="0 0 ${width} ${height}" width="100%" xmlns="http://www.w3.org/2000/svg">${axis}${bars}${amtLine}${ticks}${legend}</svg>`;
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" xmlns="http://www.w3.org/2000/svg">${axis}${bars}${amtLine}${ticks}${axisTitle}${now}${legend}</svg>`;
 }
 
 export function buildWeatherTable(points) {
