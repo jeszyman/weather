@@ -239,3 +239,28 @@ export function classifyStorm(code, cape) {
   if (cape >= 1000) return 'caution';
   return 'go';
 }
+
+const GLYPH = { go: '·', caution: '–', nogo: '✕' };
+
+export function buildMatrix(hours) {
+  const rows = [
+    { label: 'UV', fn: (h) => classifyUV(h.uv) },
+    { label: 'Air quality', fn: (h) => classifyAQI(h.aqi) },
+    { label: 'Thunderstorm', fn: (h) => classifyStorm(h.code, h.cape) },
+    { label: 'Thermal', fn: (h) => classifyThermal(h.appT) },
+    { label: 'Wind gusts', fn: (h) => classifyGust(h.gust) },
+    { label: 'Precip', fn: (h) => classifyPrecip(h.precip) },
+  ];
+  const pad = (n) => String(n).padStart(2, '0');
+  const head = '<tr><th class="rowlabel">Metric</th>' +
+    hours.map((h) => `<th>${pad(h.hour)}</th>`).join('') + '</tr>';
+  const body = rows.map((r) => {
+    const cells = hours.map((h) => {
+      const st = r.fn(h);
+      const cls = st + (h.isDay === 0 ? ' night' : '');
+      return `<td class="${cls}" title="${r.label} ${pad(h.hour)}:00: ${st}">${GLYPH[st]}</td>`;
+    }).join('');
+    return `<tr><th class="rowlabel">${r.label}</th>${cells}</tr>`;
+  }).join('');
+  return `<table class="matrix">${head}${body}</table>`;
+}
