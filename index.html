@@ -36,7 +36,12 @@
     .alert-row.sev-low { background: #e0e0e0; }
     .alert-ev { font-weight: 600; }
     .alert-win { color: #444; white-space: nowrap; }
+    #radar-map { height: 360px; border: 1px solid #eee; border-radius: 6px; }
+    .radar-controls { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 0.4rem; }
+    #radar-play { font-size: 0.9rem; padding: 4px 10px; cursor: pointer; }
   </style>
+  <link rel="stylesheet" href="./vendor/leaflet/leaflet.css">
+  <script src="./vendor/leaflet/leaflet.js"></script>
 </head>
 <body>
   <div id="locbar">
@@ -47,6 +52,13 @@
     <div id="picks"></div>
   </div>
   <div id="alerts"></div>
+  <h2 id="h-radar" data-metric="Radar" style="font-size:1.1rem;">Radar</h2>
+  <div class="radar-controls">
+    <button id="radar-play">▶ Play</button>
+    <span id="radar-time" class="sub">now</span>
+  </div>
+  <div id="radar-map"></div>
+  <p class="sub">NOAA NEXRAD (Iowa Environmental Mesonet) · base © OpenStreetMap · radar US only.</p>
   <h2 id="h-matrix" data-metric="Conditions" style="font-size:1.1rem;">Conditions</h2>
   <div class="matrix-legend">
     <span><b>·</b> go</span> <span><b>–</b> caution</span> <span><b>✕</b> no-go</span>
@@ -67,7 +79,7 @@
   <script type="module">
     import { filterToday, buildSvg, locationToday, todayIndices, buildTempSvg, buildPrecipSvg, buildWeatherTable,
              parseGeocode, addLocation, removeLocation, sameLoc, validateState, seedState, buildMatrix,
-             parseAlerts, convectiveHours, renderAlertBanner } from './uv-core.js';
+             parseAlerts, convectiveHours, renderAlertBanner, radarFrames, frameLabel } from './uv-core.js';
 
     const LS_KEY = 'weather.locations.v1';
     let mem = null; // in-memory fallback when localStorage throws
@@ -223,8 +235,57 @@
       }
     }
 
+    let radar = null; // { map, marker, layers: [{layer, tileLayer}], playing, timer, idx }
+
+    function initRadar(loc) {
+      if (typeof L === 'undefined') { console.error('Leaflet not loaded'); return; }
+      const map = L.map('radar-map', { attributionControl: true }).setView([loc.lat, loc.lon], 8);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 12, attribution: '© OpenStreetMap',
+      }).addTo(map);
+      const marker = L.circleMarker([loc.lat, loc.lon], { radius: 6, color: '#c62828', weight: 2, fillOpacity: 0.5 }).addTo(map);
+      const frames = radarFrames();
+      const layers = frames.map((f) => {
+        const tl = L.tileLayer(`https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/${f.layer}/{z}/{x}/{y}.png`, {
+          opacity: f.offsetMin === 0 ? 0.6 : 0, maxZoom: 12, attribution: 'NEXRAD © IEM',
+        }).addTo(map);
+        return { ...f, tileLayer: tl };
+      });
+      radar = { map, marker, layers, playing: false, timer: null, idx: layers.length - 1 };
+    }
+
+    function showFrame(i) {
+      radar.layers.forEach((l, j) => l.tileLayer.setOpacity(j === i ? 0.6 : 0));
+      radar.idx = i;
+      const t = document.getElementById('radar-time');
+      if (t) t.textContent = radar.layers[i].label;
+    }
+
+    function toggleRadarPlay() {
+      const btn = document.getElementById('radar-play');
+      if (!radar) return;
+      if (radar.playing) {
+        clearInterval(radar.timer); radar.timer = null; radar.playing = false;
+        if (btn) btn.textContent = '▶ Play';
+        showFrame(radar.layers.length - 1); // rest on newest
+      } else {
+        radar.playing = true;
+        if (btn) btn.textContent = '⏸ Pause';
+        radar.timer = setInterval(() => {
+          showFrame((radar.idx + 1) % radar.layers.length);
+        }, 500);
+      }
+    }
+
+    function renderRadar(loc) {
+      try {
+        if (!radar) { initRadar(loc); }
+        else { radar.map.setView([loc.lat, loc.lon]); radar.marker.setLatLng([loc.lat, loc.lon]); }
+      } catch (e) { console.error('radar', e); }
+    }
+
     function updateHeadings(loc) {
-      for (const id of ['h-matrix', 'h-uv', 'h-temp', 'h-precip']) {
+      for (const id of ['h-matrix', 'h-uv', 'h-temp', 'h-precip', 'h-radar']) {
         const el = document.getElementById(id);
         if (el) setText(el, `${el.dataset.metric} — ${loc.name}`);
       }
@@ -238,6 +299,7 @@
       renderMatrix(loc, token);
       renderUV(loc, token);
       renderForecast(loc, token);
+      renderRadar(loc); // synchronous, no fetch/token needed
     }
 
     const selEl = document.getElementById('locsel');
@@ -312,6 +374,7 @@
 
     document.getElementById('locsearch').addEventListener('click', doSearch);
     qEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
+    document.getElementById('radar-play').addEventListener('click', toggleRadarPlay);
 
     rebuildSelect();
     renderAll();
