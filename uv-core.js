@@ -265,3 +265,47 @@ export function buildMatrix(hours) {
   }).join('');
   return `<table class="matrix">${head}${body}</table>`;
 }
+
+export function parseAlerts(json) {
+  const feats = json && Array.isArray(json.features) ? json.features : [];
+  const out = [];
+  for (const f of feats) {
+    const p = (f && f.properties) || {};
+    if (typeof p.event !== 'string') continue;
+    out.push({
+      event: p.event,
+      severity: typeof p.severity === 'string' ? p.severity : 'Unknown',
+      onset: p.onset || null,
+      ends: p.ends || null,
+      expires: p.expires || null,
+      headline: typeof p.headline === 'string' ? p.headline : '',
+    });
+  }
+  return out;
+}
+
+export function alertSeverityRank(sev) {
+  return { Extreme: 4, Severe: 3, Moderate: 2, Minor: 1 }[sev] || 0;
+}
+
+export function isConvectiveAlert(event) {
+  return /tornado|thunderstorm/i.test(event) && /warning/i.test(event);
+}
+
+export function convectiveHours(alerts, todayStr, offsetSeconds) {
+  const covered = new Set();
+  for (const a of alerts) {
+    if (!isConvectiveAlert(a.event)) continue;
+    const onsetMs = Date.parse(a.onset);
+    if (Number.isNaN(onsetMs)) continue;
+    let endMs = Date.parse(a.ends || a.expires);
+    if (Number.isNaN(endMs)) endMs = onsetMs + 3600000;
+    for (let h = 0; h < 24; h++) {
+      const hh = String(h).padStart(2, '0');
+      const startMs = Date.parse(`${todayStr}T${hh}:00:00Z`) - offsetSeconds * 1000;
+      const hourEndMs = startMs + 3600000;
+      if (onsetMs < hourEndMs && endMs > startMs) covered.add(hh);
+    }
+  }
+  return covered;
+}
