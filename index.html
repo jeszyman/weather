@@ -360,6 +360,18 @@
     </details>
 
     <details class="panel dpanel">
+      <summary class="panel__head"><h2 class="panel__title" id="h-aqi" data-metric="Air quality">Air quality</h2></summary>
+      <p class="cap">US AQI over EPA category bands. PM2.5 / PM10 / ozone readout at top right.</p>
+      <div class="screen"><div id="aqi">Loading…</div></div>
+    </details>
+
+    <details class="panel dpanel">
+      <summary class="panel__head"><h2 class="panel__title" id="h-wind" data-metric="Wind gusts">Wind gusts</h2></summary>
+      <p class="cap">Hourly gusts (mph). Bands: go &lt;20, caution 20&#8211;30, no&#8209;go ≥31.</p>
+      <div class="screen"><div id="wind">Loading…</div></div>
+    </details>
+
+    <details class="panel dpanel">
       <summary class="panel__head"><h2 class="panel__title">Hourly detail</h2></summary>
       <div class="table-wrap"><div id="wtable">Loading…</div></div>
     </details>
@@ -377,7 +389,7 @@
     import { filterToday, buildSvg, locationToday, todayIndices, buildTempSvg, buildPrecipSvg, buildWeatherTable,
              parseGeocode, addLocation, removeLocation, sameLoc, validateState, seedState, buildMatrix,
              parseAlerts, convectiveHours, renderAlertBanner, radarFrames, frameLabel,
-             dateForOffset, dayLabel, bestHour } from './uv-core.js';
+             dateForOffset, dayLabel, bestHour, buildAqiSvg, buildWindSvg } from './uv-core.js';
 
     const MAX_DAY = 6;   // Open-Meteo returns 7 days (0..6)
     let dayOffset = 0;
@@ -433,7 +445,7 @@
     }
 
     async function fetchMatrix(lat, lon) {
-      const aqURL = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=uv_index,us_aqi&timezone=auto`;
+      const aqURL = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=uv_index,us_aqi,pm2_5,pm10,ozone&timezone=auto`;
       const fcURL = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=cape,weather_code,wind_gusts_10m,apparent_temperature,precipitation,is_day&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=auto`;
       const alURL = `https://api.weather.gov/alerts/active?point=${lat},${lon}`;
       const [aqRes, fcRes, alJson] = await Promise.all([
@@ -445,7 +457,7 @@
       const [aq, fc] = await Promise.all([aqRes.json(), fcRes.json()]);
       if (!aq.hourly || !Array.isArray(aq.hourly.time) || typeof aq.utc_offset_seconds !== 'number') throw new Error('malformed air-quality');
       if (!fc.hourly || !Array.isArray(fc.hourly.time) || typeof fc.utc_offset_seconds !== 'number') throw new Error('malformed forecast');
-      const aqOk = ['uv_index', 'us_aqi'].every((k) =>
+      const aqOk = ['uv_index', 'us_aqi', 'pm2_5', 'pm10', 'ozone'].every((k) =>
         Array.isArray(aq.hourly[k]) && aq.hourly[k].length === aq.hourly.time.length);
       const fcOk = ['cape', 'weather_code', 'wind_gusts_10m', 'apparent_temperature', 'precipitation', 'is_day'].every((k) =>
         Array.isArray(fc.hourly[k]) && fc.hourly[k].length === fc.hourly.time.length);
@@ -523,6 +535,10 @@
             appT: fc.hourly.apparent_temperature[fi],
             precip: fc.hourly.precipitation[fi],
             stormWarning: warnHours.has(key),
+            time: aq.hourly.time[i],
+            pm25: aq.hourly.pm2_5[i],
+            pm10: aq.hourly.pm10[i],
+            ozone: aq.hourly.ozone[i],
           };
           const numeric = [candidate.isDay, candidate.uv, candidate.aqi, candidate.code,
             candidate.cape, candidate.gust, candidate.appT, candidate.precip];
@@ -534,6 +550,12 @@
         if (dayOffset === 0) markNowColumn(el, hours, offset); // "now" only exists on today
         markBestHour(el, hours);
         wireMatrixClicks(el);
+        // Air-quality + wind-gust detail panels render from the same joined hours.
+        const nh = nowHourFor(offset);
+        document.getElementById('aqi').innerHTML = buildAqiSvg(
+          hours.map((h) => ({ time: h.time, aqi: h.aqi, pm25: h.pm25, pm10: h.pm10, ozone: h.ozone })), { nowHour: nh });
+        document.getElementById('wind').innerHTML = buildWindSvg(
+          hours.map((h) => ({ time: h.time, gust: h.gust })), { nowHour: nh });
       } catch (e) {
         if (token !== renderToken) return;
         console.error(e);
@@ -657,7 +679,7 @@
 
     function updateHeadings(loc) {
       // Panel titles are plain metric names now (location is shown once in the day bar).
-      for (const id of ['h-matrix', 'h-uv', 'h-temp', 'h-precip', 'h-radar']) {
+      for (const id of ['h-matrix', 'h-uv', 'h-temp', 'h-precip', 'h-radar', 'h-aqi', 'h-wind']) {
         const el = document.getElementById(id);
         if (el) setText(el, el.dataset.metric);
       }

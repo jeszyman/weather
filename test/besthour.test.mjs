@@ -44,10 +44,12 @@ test('bestHour returns null when there are no daylight hours', () => {
 test('buildMatrix tags clickable rows with data-panel and every cell with data-hour', () => {
   const html = buildMatrix([green({ hour: 14 })]);
   assert.match(html, /data-panel="h-uv"/);       // UV row links to the UV panel
-  assert.match(html, /data-panel="h-temp"/);     // Thermal -> temperature panel
-  assert.match(html, /data-panel="h-precip"/);   // Precip -> precip panel
+  assert.match(html, /data-panel="h-aqi"/);      // Air quality -> AQI panel
   assert.match(html, /data-panel="h-radar"/);    // Thunderstorm -> radar panel
+  assert.match(html, /data-panel="h-temp"/);     // Feels like -> temperature panel
+  assert.match(html, /data-panel="h-wind"/);     // Wind gusts -> wind panel
+  assert.match(html, /data-panel="h-precip"/);   // Precip -> precip panel
   assert.match(html, /data-hour="14"/);
-  // Air quality and Wind gusts have no dedicated panel -> not every row is clickable
-  assert.equal((html.match(/data-panel=/g) || []).length, 4);
+  // all six metric rows now link to a detail panel
+  assert.equal((html.match(/data-panel=/g) || []).length, 6);
 });

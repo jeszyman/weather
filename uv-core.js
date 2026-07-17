@@ -59,8 +59,8 @@ function hourOfDay(iso) { return Number(iso.slice(11, 13)); }
 function nowLine(nowHour, xFn, pad, height) {
   if (!Number.isFinite(nowHour) || nowHour < 0 || nowHour > 23) return '';
   const nx = xFn(nowHour).toFixed(1);
-  return `<line x1="${nx}" y1="${pad}" x2="${nx}" y2="${height - pad}" stroke="#4aa8ff" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.9"/>` +
-    `<text x="${nx}" y="${pad - 4}" font-size="10" text-anchor="middle" fill="#4aa8ff">now</text>`;
+  return `<line x1="${nx}" y1="${pad}" x2="${nx}" y2="${height - pad}" stroke="#4aa8ff" stroke-width="2.5" stroke-dasharray="3 3" opacity="0.9"/>` +
+    `<text x="${nx}" y="${pad - 4}" font-size="12" text-anchor="middle" fill="#4aa8ff">now</text>`;
 }
 
 export function buildTempSvg(points, opts = {}) {
@@ -75,16 +75,16 @@ export function buildTempSvg(points, opts = {}) {
   const y = (t) => (height - pad) - ((t - lo) / (hi - lo)) * plotH;
 
   const poly = points.length
-    ? `<polyline points="${points.map((p) => `${x(hourOfDay(p.time)).toFixed(1)},${y(p.temp).toFixed(1)}`).join(' ')}" fill="none" stroke="#e65100" stroke-width="2"/>`
+    ? `<polyline points="${points.map((p) => `${x(hourOfDay(p.time)).toFixed(1)},${y(p.temp).toFixed(1)}`).join(' ')}" fill="none" stroke="#e65100" stroke-width="3.5"/>`
     : '<polyline points="" fill="none" stroke="#e65100"/>';
 
   let ticks = '';
   for (let h = 0; h <= 23; h += 3) {
-    ticks += `<text x="${x(h).toFixed(1)}" y="${height - pad + 16}" font-size="11" text-anchor="middle" fill="#555">${String(h).padStart(2, '0')}</text>`;
+    ticks += `<text x="${x(h).toFixed(1)}" y="${height - pad + 16}" font-size="13" text-anchor="middle" fill="#555">${String(h).padStart(2, '0')}</text>`;
   }
   const yStep = Math.max(2, Math.round((hi - lo) / 6));
   for (let v = Math.ceil(lo); v <= hi; v += yStep) {
-    ticks += `<text x="${pad - 8}" y="${(y(v) + 4).toFixed(1)}" font-size="11" text-anchor="end" fill="#555">${v}</text>`;
+    ticks += `<text x="${pad - 8}" y="${(y(v) + 4).toFixed(1)}" font-size="13" text-anchor="end" fill="#555">${v}</text>`;
   }
 
   let labels = '';
@@ -93,16 +93,16 @@ export function buildTempSvg(points, opts = {}) {
     const loP = points.reduce((a, b) => (b.temp < a.temp ? b : a));
     labels =
       `<circle cx="${x(hourOfDay(hiP.time)).toFixed(1)}" cy="${y(hiP.temp).toFixed(1)}" r="3" fill="#e65100"/>` +
-      `<text x="${x(hourOfDay(hiP.time)).toFixed(1)}" y="${(y(hiP.temp) - 8).toFixed(1)}" font-size="12" text-anchor="middle" fill="#e65100">high ${Math.round(hiP.temp)}°</text>` +
+      `<text x="${x(hourOfDay(hiP.time)).toFixed(1)}" y="${(y(hiP.temp) - 8).toFixed(1)}" font-size="15" text-anchor="middle" fill="#e65100">high ${Math.round(hiP.temp)}°</text>` +
       `<circle cx="${x(hourOfDay(loP.time)).toFixed(1)}" cy="${y(loP.temp).toFixed(1)}" r="3" fill="#0277bd"/>` +
-      `<text x="${x(hourOfDay(loP.time)).toFixed(1)}" y="${(y(loP.temp) + 16).toFixed(1)}" font-size="12" text-anchor="middle" fill="#0277bd">low ${Math.round(loP.temp)}°</text>`;
+      `<text x="${x(hourOfDay(loP.time)).toFixed(1)}" y="${(y(loP.temp) + 16).toFixed(1)}" font-size="15" text-anchor="middle" fill="#0277bd">low ${Math.round(loP.temp)}°</text>`;
   }
 
   const axis = `<line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" stroke="#999"/>` +
                `<line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height - pad}" stroke="#999"/>`;
   const axisTitles =
-    `<text x="${(pad + (width - pad) / 2).toFixed(1)}" y="${height - 4}" font-size="11" text-anchor="middle" fill="#777">hour of day</text>` +
-    `<text x="14" y="${(height / 2).toFixed(1)}" font-size="11" text-anchor="middle" fill="#777" transform="rotate(-90 14 ${(height / 2).toFixed(1)})">°F</text>`;
+    `<text x="${(pad + (width - pad) / 2).toFixed(1)}" y="${height - 4}" font-size="13" text-anchor="middle" fill="#777">hour of day</text>` +
+    `<text x="14" y="${(height / 2).toFixed(1)}" font-size="13" text-anchor="middle" fill="#777" transform="rotate(-90 14 ${(height / 2).toFixed(1)})">°F</text>`;
   const now = nowLine(nowHour, x, pad, height);
 
   return `<svg viewBox="0 0 ${width} ${height}" width="100%" xmlns="http://www.w3.org/2000/svg">${axis}${ticks}${axisTitles}${now}${poly}${labels}</svg>`;
@@ -130,20 +130,20 @@ export function buildSvg(points, opts = {}) {
     points.map((p) => `${x(hourOfDay(p.time)).toFixed(1)},${y(p[key]).toFixed(1)}`).join(' ');
 
   const uvLine = points.length
-    ? `<polyline points="${toPoly('uv')}" fill="none" stroke="#c62828" stroke-width="2"/>`
+    ? `<polyline points="${toPoly('uv')}" fill="none" stroke="#c62828" stroke-width="3.5"/>`
     : '<polyline points="" fill="none" stroke="#c62828"/>';
   const clearLine = points.length
-    ? `<polyline points="${toPoly('uvClear')}" fill="none" stroke="#7e57c2" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.7"/>`
+    ? `<polyline points="${toPoly('uvClear')}" fill="none" stroke="#7e57c2" stroke-width="2.5" stroke-dasharray="4 3" opacity="0.7"/>`
     : '<polyline points="" fill="none" stroke="#7e57c2"/>';
 
   // x ticks every 3h
   let ticks = '';
   for (let h = 0; h <= 23; h += 3) {
-    ticks += `<text x="${x(h).toFixed(1)}" y="${height - pad + 16}" font-size="11" text-anchor="middle" fill="#555">${String(h).padStart(2, '0')}</text>`;
+    ticks += `<text x="${x(h).toFixed(1)}" y="${height - pad + 16}" font-size="13" text-anchor="middle" fill="#555">${String(h).padStart(2, '0')}</text>`;
   }
   // y ticks
   for (let v = 0; v <= ceiling; v += Math.max(1, Math.round(ceiling / 6))) {
-    ticks += `<text x="${pad - 8}" y="${(y(v) + 4).toFixed(1)}" font-size="11" text-anchor="end" fill="#555">${v}</text>`;
+    ticks += `<text x="${pad - 8}" y="${(y(v) + 4).toFixed(1)}" font-size="13" text-anchor="end" fill="#555">${v}</text>`;
   }
 
   let peakLabel = '';
@@ -151,14 +151,14 @@ export function buildSvg(points, opts = {}) {
     const pk = findPeak(points);
     const px = x(hourOfDay(pk.time));
     peakLabel = `<circle cx="${px.toFixed(1)}" cy="${y(pk.uv).toFixed(1)}" r="3" fill="#c62828"/>` +
-      `<text x="${px.toFixed(1)}" y="${(y(pk.uv) - 8).toFixed(1)}" font-size="12" text-anchor="middle" fill="#c62828">peak ${pk.uv} @ ${hourOfDay(pk.time)}:00</text>`;
+      `<text x="${px.toFixed(1)}" y="${(y(pk.uv) - 8).toFixed(1)}" font-size="15" text-anchor="middle" fill="#c62828">peak ${pk.uv} @ ${hourOfDay(pk.time)}:00</text>`;
   }
 
   const axis = `<line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" stroke="#999"/>` +
                `<line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height - pad}" stroke="#999"/>`;
   const axisTitles =
-    `<text x="${(pad + (width - pad) / 2).toFixed(1)}" y="${height - 4}" font-size="11" text-anchor="middle" fill="#777">hour of day</text>` +
-    `<text x="14" y="${(height / 2).toFixed(1)}" font-size="11" text-anchor="middle" fill="#777" transform="rotate(-90 14 ${(height / 2).toFixed(1)})">UV index</text>`;
+    `<text x="${(pad + (width - pad) / 2).toFixed(1)}" y="${height - 4}" font-size="13" text-anchor="middle" fill="#777">hour of day</text>` +
+    `<text x="14" y="${(height / 2).toFixed(1)}" font-size="13" text-anchor="middle" fill="#777" transform="rotate(-90 14 ${(height / 2).toFixed(1)})">UV index</text>`;
   const now = nowLine(nowHour, x, pad, height);
 
   return `<svg viewBox="0 0 ${width} ${height}" width="100%" xmlns="http://www.w3.org/2000/svg">${bands}${axis}${ticks}${axisTitles}${now}${clearLine}${uvLine}${peakLabel}</svg>`;
@@ -184,31 +184,145 @@ export function buildPrecipSvg(points, opts = {}) {
     .join('');
 
   const amtLine = points.length
-    ? `<polyline points="${points.map((p) => `${x(hourOfDay(p.time)).toFixed(1)},${yAmt(p.amount).toFixed(1)}`).join(' ')}" fill="none" stroke="#01579b" stroke-width="1.5"/>`
+    ? `<polyline points="${points.map((p) => `${x(hourOfDay(p.time)).toFixed(1)},${yAmt(p.amount).toFixed(1)}`).join(' ')}" fill="none" stroke="#01579b" stroke-width="2.5"/>`
     : '<polyline points="" fill="none" stroke="#01579b"/>';
 
   let ticks = '';
   for (let h = 0; h <= 23; h += 3) {
-    ticks += `<text x="${x(h).toFixed(1)}" y="${height - pad + 16}" font-size="11" text-anchor="middle" fill="#555">${String(h).padStart(2, '0')}</text>`;
+    ticks += `<text x="${x(h).toFixed(1)}" y="${height - pad + 16}" font-size="13" text-anchor="middle" fill="#555">${String(h).padStart(2, '0')}</text>`;
   }
   for (let p = 0; p <= 100; p += 25) {
-    ticks += `<text x="${pad - 8}" y="${(yProb(p) + 4).toFixed(1)}" font-size="10" text-anchor="end" fill="#4fc3f7">${p}%</text>`;
+    ticks += `<text x="${pad - 8}" y="${(yProb(p) + 4).toFixed(1)}" font-size="12" text-anchor="end" fill="#4fc3f7">${p}%</text>`;
   }
-  ticks += `<text x="${width - pad + 6}" y="${(yAmt(amtTop) + 4).toFixed(1)}" font-size="10" text-anchor="start" fill="#01579b">${amtTop}"</text>` +
-           `<text x="${width - pad + 6}" y="${(yAmt(0) + 4).toFixed(1)}" font-size="10" text-anchor="start" fill="#01579b">0"</text>`;
+  ticks += `<text x="${width - pad + 6}" y="${(yAmt(amtTop) + 4).toFixed(1)}" font-size="12" text-anchor="start" fill="#01579b">${amtTop}"</text>` +
+           `<text x="${width - pad + 6}" y="${(yAmt(0) + 4).toFixed(1)}" font-size="12" text-anchor="start" fill="#01579b">0"</text>`;
 
   const legend =
     `<rect x="${pad}" y="8" width="10" height="10" fill="#4fc3f7" opacity="0.6"/>` +
-    `<text x="${pad + 14}" y="17" font-size="11" fill="#555">prob %</text>` +
-    `<line x1="${pad + 70}" y1="13" x2="${pad + 90}" y2="13" stroke="#01579b" stroke-width="1.5"/>` +
-    `<text x="${pad + 94}" y="17" font-size="11" fill="#555">amount in</text>`;
+    `<text x="${pad + 14}" y="17" font-size="13" fill="#555">prob %</text>` +
+    `<line x1="${pad + 70}" y1="13" x2="${pad + 90}" y2="13" stroke="#01579b" stroke-width="2.5"/>` +
+    `<text x="${pad + 94}" y="17" font-size="13" fill="#555">amount in</text>`;
 
   const axis = `<line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" stroke="#999"/>` +
                `<line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height - pad}" stroke="#999"/>`;
-  const axisTitle = `<text x="${(pad + (width - pad) / 2).toFixed(1)}" y="${height - 4}" font-size="11" text-anchor="middle" fill="#777">hour of day</text>`;
+  const axisTitle = `<text x="${(pad + (width - pad) / 2).toFixed(1)}" y="${height - 4}" font-size="13" text-anchor="middle" fill="#777">hour of day</text>`;
   const now = nowLine(nowHour, x, pad, height);
 
   return `<svg viewBox="0 0 ${width} ${height}" width="100%" xmlns="http://www.w3.org/2000/svg">${axis}${bars}${amtLine}${ticks}${axisTitle}${now}${legend}</svg>`;
+}
+
+// US EPA AQI category bands (US AQI scale), for background shading.
+export const AQI_BANDS = [
+  { min: 0,   max: 51,  color: '#33c06f' }, // Good
+  { min: 51,  max: 101, color: '#f5b73d' }, // Moderate
+  { min: 101, max: 151, color: '#ff9800' }, // Unhealthy for sensitive
+  { min: 151, max: 201, color: '#f26169' }, // Unhealthy
+  { min: 201, max: 301, color: '#9c27b0' }, // Very unhealthy
+  { min: 301, max: 501, color: '#7e0023' }, // Hazardous
+];
+
+// Air-quality chart: US AQI line over EPA category bands, with PM2.5/PM10/ozone
+// current-hour readouts. points: {time, aqi, pm25, pm10, ozone}.
+export function buildAqiSvg(points, opts = {}) {
+  const { width = 720, height = 240, pad = 40, nowHour = null } = opts;
+  const plotW = width - 2 * pad;
+  const plotH = height - 2 * pad;
+  const maxAqi = points.reduce((m, p) => Math.max(m, p.aqi || 0), 0);
+  const ceiling = Math.max(100, Math.ceil((maxAqi + 10) / 25) * 25);
+  const x = (h) => pad + (h / 23) * plotW;
+  const y = (a) => (height - pad) - (Math.max(0, a) / ceiling) * plotH;
+
+  const bands = AQI_BANDS
+    .filter((b) => b.min < ceiling)
+    .map((b) => {
+      const top = y(Math.min(b.max, ceiling));
+      const bot = y(b.min);
+      return `<rect x="${pad}" y="${top.toFixed(1)}" width="${plotW}" height="${(bot - top).toFixed(1)}" fill="${b.color}" opacity="0.14"/>`;
+    })
+    .join('');
+
+  const line = points.length
+    ? `<polyline points="${points.map((p) => `${x(hourOfDay(p.time)).toFixed(1)},${y(p.aqi).toFixed(1)}`).join(' ')}" fill="none" stroke="#455a64" stroke-width="3.5"/>`
+    : '<polyline points="" fill="none" stroke="#455a64"/>';
+
+  let ticks = '';
+  for (let h = 0; h <= 23; h += 3) {
+    ticks += `<text x="${x(h).toFixed(1)}" y="${height - pad + 16}" font-size="13" text-anchor="middle" fill="#555">${String(h).padStart(2, '0')}</text>`;
+  }
+  const yStep = Math.max(25, Math.round(ceiling / 6 / 25) * 25);
+  for (let v = 0; v <= ceiling; v += yStep) {
+    ticks += `<text x="${pad - 8}" y="${(y(v) + 4).toFixed(1)}" font-size="12" text-anchor="end" fill="#555">${v}</text>`;
+  }
+
+  // component readouts for the "now" hour (or the last available hour)
+  let readout = '';
+  if (points.length) {
+    const cur = points.find((p) => hourOfDay(p.time) === nowHour) || points[points.length - 1];
+    const r = (v) => (Number.isFinite(v) ? Math.round(v) : '—');
+    readout = `<text x="${width - pad}" y="16" font-size="13" text-anchor="end" fill="#455a64">` +
+      `PM2.5 ${r(cur.pm25)} · PM10 ${r(cur.pm10)} · O₃ ${r(cur.ozone)} µg/m³</text>`;
+  }
+
+  const axis = `<line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" stroke="#999"/>` +
+               `<line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height - pad}" stroke="#999"/>`;
+  const axisTitles =
+    `<text x="${(pad + (width - pad) / 2).toFixed(1)}" y="${height - 4}" font-size="13" text-anchor="middle" fill="#777">hour of day</text>` +
+    `<text x="14" y="${(height / 2).toFixed(1)}" font-size="13" text-anchor="middle" fill="#777" transform="rotate(-90 14 ${(height / 2).toFixed(1)})">US AQI</text>`;
+  const now = nowLine(nowHour, x, pad, height);
+
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" xmlns="http://www.w3.org/2000/svg">${bands}${axis}${ticks}${axisTitles}${now}${line}${readout}</svg>`;
+}
+
+// Wind-gust chart: hourly gust line (mph) with go/caution/nogo threshold bands (20/31).
+// points: {time, gust}.
+export function buildWindSvg(points, opts = {}) {
+  const { width = 720, height = 240, pad = 40, nowHour = null } = opts;
+  const plotW = width - 2 * pad;
+  const plotH = height - 2 * pad;
+  const maxGust = points.reduce((m, p) => Math.max(m, p.gust || 0), 0);
+  const ceiling = Math.max(35, Math.ceil((maxGust + 3) / 5) * 5);
+  const x = (h) => pad + (h / 23) * plotW;
+  const y = (g) => (height - pad) - (Math.max(0, g) / ceiling) * plotH;
+
+  const bands = [
+    { min: 0, max: 20, color: '#33c06f' },   // go
+    { min: 20, max: 31, color: '#f5b73d' },  // caution
+    { min: 31, max: ceiling, color: '#f26169' }, // nogo
+  ].filter((b) => b.min < ceiling).map((b) => {
+    const top = y(Math.min(b.max, ceiling));
+    const bot = y(b.min);
+    return `<rect x="${pad}" y="${top.toFixed(1)}" width="${plotW}" height="${(bot - top).toFixed(1)}" fill="${b.color}" opacity="0.14"/>`;
+  }).join('');
+
+  const line = points.length
+    ? `<polyline points="${points.map((p) => `${x(hourOfDay(p.time)).toFixed(1)},${y(p.gust).toFixed(1)}`).join(' ')}" fill="none" stroke="#0277bd" stroke-width="3.5"/>`
+    : '<polyline points="" fill="none" stroke="#0277bd"/>';
+
+  let ticks = '';
+  for (let h = 0; h <= 23; h += 3) {
+    ticks += `<text x="${x(h).toFixed(1)}" y="${height - pad + 16}" font-size="13" text-anchor="middle" fill="#555">${String(h).padStart(2, '0')}</text>`;
+  }
+  const yStep = Math.max(5, Math.round(ceiling / 6 / 5) * 5);
+  for (let v = 0; v <= ceiling; v += yStep) {
+    ticks += `<text x="${pad - 8}" y="${(y(v) + 4).toFixed(1)}" font-size="12" text-anchor="end" fill="#555">${v}</text>`;
+  }
+
+  let peakLabel = '';
+  if (points.length) {
+    const pk = points.reduce((a, b) => (b.gust > a.gust ? b : a));
+    const px = x(hourOfDay(pk.time));
+    peakLabel = `<circle cx="${px.toFixed(1)}" cy="${y(pk.gust).toFixed(1)}" r="3" fill="#0277bd"/>` +
+      `<text x="${px.toFixed(1)}" y="${(y(pk.gust) - 8).toFixed(1)}" font-size="15" text-anchor="middle" fill="#0277bd">peak ${Math.round(pk.gust)} mph</text>`;
+  }
+
+  const axis = `<line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" stroke="#999"/>` +
+               `<line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height - pad}" stroke="#999"/>`;
+  const axisTitles =
+    `<text x="${(pad + (width - pad) / 2).toFixed(1)}" y="${height - 4}" font-size="13" text-anchor="middle" fill="#777">hour of day</text>` +
+    `<text x="14" y="${(height / 2).toFixed(1)}" font-size="13" text-anchor="middle" fill="#777" transform="rotate(-90 14 ${(height / 2).toFixed(1)})">gust mph</text>`;
+  const now = nowLine(nowHour, x, pad, height);
+
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" xmlns="http://www.w3.org/2000/svg">${bands}${axis}${ticks}${axisTitles}${now}${line}${peakLabel}</svg>`;
 }
 
 export function buildWeatherTable(points) {
@@ -281,10 +395,10 @@ const STATE_PENALTY = { go: 0, caution: 1, nogo: 4 };
 // The six matrix rows. `panel` names the detail section a cell links to (null = no dedicated panel).
 const MATRIX_ROWS = [
   { label: 'UV', panel: 'h-uv', fn: (h) => classifyUV(h.uv) },
-  { label: 'Air quality', panel: null, fn: (h) => classifyAQI(h.aqi) },
+  { label: 'Air quality', panel: 'h-aqi', fn: (h) => classifyAQI(h.aqi) },
   { label: 'Thunderstorm', panel: 'h-radar', fn: (h) => classifyStorm(h.code, h.cape) },
-  { label: 'Thermal', panel: 'h-temp', fn: (h) => classifyThermal(h.appT) },
-  { label: 'Wind gusts', panel: null, fn: (h) => classifyGust(h.gust) },
+  { label: 'Feels like', panel: 'h-temp', fn: (h) => classifyThermal(h.appT) },
+  { label: 'Wind gusts', panel: 'h-wind', fn: (h) => classifyGust(h.gust) },
   { label: 'Precip', panel: 'h-precip', fn: (h) => classifyPrecip(h.precip) },
 ];
 

@@ -9,7 +9,7 @@ test('buildMatrix returns a table with a header and six metric rows', () => {
   assert.match(html, /^<table[\s\S]*<\/table>$/);
   // 1 header row + 6 metric rows
   assert.equal((html.match(/<tr/g) || []).length, 7);
-  for (const label of ['UV', 'Air quality', 'Thunderstorm', 'Thermal', 'Wind gusts', 'Precip']) {
+  for (const label of ['UV', 'Air quality', 'Thunderstorm', 'Feels like', 'Wind gusts', 'Precip']) {
     assert.ok(html.includes(label), `missing row label ${label}`);
   }
 });
