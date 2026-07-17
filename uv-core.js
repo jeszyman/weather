@@ -164,51 +164,61 @@ export function buildSvg(points, opts = {}) {
   return `<svg viewBox="0 0 ${width} ${height}" width="100%" xmlns="http://www.w3.org/2000/svg">${bands}${axis}${ticks}${axisTitles}${now}${clearLine}${uvLine}${peakLabel}</svg>`;
 }
 
+// Precipitation: TWO stacked single-axis sub-plots sharing one x (hour) axis —
+// rain probability (%) on top, hourly amount (in) below. Avoids the dual-axis
+// anti-pattern (two y-scales on one plot). points: {time, prob, amount}.
 export function buildPrecipSvg(points, opts = {}) {
-  const { width = 720, height = 200, pad = 40, nowHour = null } = opts;
+  const { width = 720, pad = 40 } = opts;
+  const nowHour = opts.nowHour ?? null;
+  const gap = 28;                 // vertical gap between the two sub-plots
+  const subH = 130;               // height of each sub-plot
+  const height = subH * 2 + gap;
   const plotW = width - 2 * pad;
-  const plotH = height - 2 * pad;
   const x = (h) => pad + (h / 23) * plotW;
-  const yProb = (p) => (height - pad) - (Math.max(0, Math.min(100, p)) / 100) * plotH;
+  const barW = Math.max(2, (plotW / 24) * 0.7);
+  const pad2 = (n) => String(n).padStart(2, '0');
+
+  // ---- top sub-plot: probability (0..100%) ----
+  const pTop = 6, pBot = pTop + subH - 22; // inner plot band of the top chart
+  const yProb = (p) => pBot - (Math.max(0, Math.min(100, p)) / 100) * (pBot - pTop);
+  const probBars = points.map((p) => {
+    const bx = x(hourOfDay(p.time)) - barW / 2;
+    const top = yProb(p.prob);
+    return `<rect x="${bx.toFixed(1)}" y="${top.toFixed(1)}" width="${barW.toFixed(1)}" height="${(pBot - top).toFixed(1)}" rx="1.5" fill="#4fc3f7" opacity="0.85"/>`;
+  }).join('');
+  let probTicks = '';
+  for (let p = 0; p <= 100; p += 25) probTicks += `<text x="${pad - 8}" y="${(yProb(p) + 4).toFixed(1)}" font-size="12" text-anchor="end" fill="#555">${p}</text>`;
+  const probAxis = `<line x1="${pad}" y1="${pBot}" x2="${width - pad}" y2="${pBot}" stroke="#999"/><line x1="${pad}" y1="${pTop}" x2="${pad}" y2="${pBot}" stroke="#999"/>`;
+  const probTitle = `<text x="14" y="${((pTop + pBot) / 2).toFixed(1)}" font-size="12" text-anchor="middle" fill="#777" transform="rotate(-90 14 ${((pTop + pBot) / 2).toFixed(1)})">rain %</text>`;
+
+  // ---- bottom sub-plot: amount (0..amtTop inches) ----
+  const aTop = subH + gap, aBot = aTop + subH - 22;
   const maxAmt = points.reduce((m, p) => Math.max(m, p.amount || 0), 0);
   const amtTop = Math.max(0.1, Math.ceil(maxAmt * 10) / 10);
-  const yAmt = (a) => (height - pad) - (Math.max(0, a) / amtTop) * plotH;
+  const yAmt = (a) => aBot - (Math.max(0, a) / amtTop) * (aBot - aTop);
+  const amtBars = points.map((p) => {
+    const bx = x(hourOfDay(p.time)) - barW / 2;
+    const top = yAmt(p.amount);
+    return `<rect x="${bx.toFixed(1)}" y="${top.toFixed(1)}" width="${barW.toFixed(1)}" height="${(aBot - top).toFixed(1)}" rx="1.5" fill="#0277bd" opacity="0.85"/>`;
+  }).join('');
+  const amtAxis = `<line x1="${pad}" y1="${aBot}" x2="${width - pad}" y2="${aBot}" stroke="#999"/><line x1="${pad}" y1="${aTop}" x2="${pad}" y2="${aBot}" stroke="#999"/>`;
+  const amtTicks = `<text x="${pad - 8}" y="${(yAmt(amtTop) + 4).toFixed(1)}" font-size="12" text-anchor="end" fill="#555">${amtTop}</text>` +
+                   `<text x="${pad - 8}" y="${(yAmt(0) + 4).toFixed(1)}" font-size="12" text-anchor="end" fill="#555">0</text>`;
+  const amtTitle = `<text x="14" y="${((aTop + aBot) / 2).toFixed(1)}" font-size="12" text-anchor="middle" fill="#777" transform="rotate(-90 14 ${((aTop + aBot) / 2).toFixed(1)})">amount in</text>`;
 
-  const barW = Math.max(2, (plotW / 24) * 0.7);
-  const bars = points
-    .map((p) => {
-      const bx = x(hourOfDay(p.time)) - barW / 2;
-      const top = yProb(p.prob);
-      return `<rect x="${bx.toFixed(1)}" y="${top.toFixed(1)}" width="${barW.toFixed(1)}" height="${(height - pad - top).toFixed(1)}" fill="#4fc3f7" opacity="0.6"/>`;
-    })
-    .join('');
-
-  const amtLine = points.length
-    ? `<polyline points="${points.map((p) => `${x(hourOfDay(p.time)).toFixed(1)},${yAmt(p.amount).toFixed(1)}`).join(' ')}" fill="none" stroke="#01579b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`
-    : '<polyline points="" fill="none" stroke="#01579b"/>';
-
-  let ticks = '';
-  for (let h = 0; h <= 23; h += 3) {
-    ticks += `<text x="${x(h).toFixed(1)}" y="${height - pad + 16}" font-size="13" text-anchor="middle" fill="#555">${String(h).padStart(2, '0')}</text>`;
+  // ---- shared x labels (under the bottom plot) + now line spanning both ----
+  let xTicks = '';
+  for (let h = 0; h <= 23; h += 3) xTicks += `<text x="${x(h).toFixed(1)}" y="${aBot + 16}" font-size="13" text-anchor="middle" fill="#555">${pad2(h)}</text>`;
+  const xTitle = `<text x="${(pad + (width - pad) / 2).toFixed(1)}" y="${height - 2}" font-size="13" text-anchor="middle" fill="#777">hour of day</text>`;
+  let now = '';
+  if (Number.isFinite(nowHour) && nowHour >= 0 && nowHour <= 23) {
+    const nx = x(nowHour).toFixed(1);
+    now = `<line x1="${nx}" y1="${pTop}" x2="${nx}" y2="${aBot}" stroke="#4aa8ff" stroke-width="2.5" stroke-dasharray="3 3" opacity="0.9"/>` +
+      `<text x="${nx}" y="${pTop - 2}" font-size="12" text-anchor="middle" fill="#4aa8ff">now</text>`;
   }
-  for (let p = 0; p <= 100; p += 25) {
-    ticks += `<text x="${pad - 8}" y="${(yProb(p) + 4).toFixed(1)}" font-size="12" text-anchor="end" fill="#4fc3f7">${p}%</text>`;
-  }
-  ticks += `<text x="${width - pad + 6}" y="${(yAmt(amtTop) + 4).toFixed(1)}" font-size="12" text-anchor="start" fill="#01579b">${amtTop}"</text>` +
-           `<text x="${width - pad + 6}" y="${(yAmt(0) + 4).toFixed(1)}" font-size="12" text-anchor="start" fill="#01579b">0"</text>`;
 
-  const legend =
-    `<rect x="${pad}" y="8" width="10" height="10" fill="#4fc3f7" opacity="0.6"/>` +
-    `<text x="${pad + 14}" y="17" font-size="13" fill="#555">prob %</text>` +
-    `<line x1="${pad + 70}" y1="13" x2="${pad + 90}" y2="13" stroke="#01579b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>` +
-    `<text x="${pad + 94}" y="17" font-size="13" fill="#555">amount in</text>`;
-
-  const axis = `<line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" stroke="#999"/>` +
-               `<line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height - pad}" stroke="#999"/>`;
-  const axisTitle = `<text x="${(pad + (width - pad) / 2).toFixed(1)}" y="${height - 4}" font-size="13" text-anchor="middle" fill="#777">hour of day</text>`;
-  const now = nowLine(nowHour, x, pad, height);
-
-  return `<svg viewBox="0 0 ${width} ${height}" width="100%" xmlns="http://www.w3.org/2000/svg">${axis}${bars}${amtLine}${ticks}${axisTitle}${now}${legend}</svg>`;
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" xmlns="http://www.w3.org/2000/svg">` +
+    `${probAxis}${probTicks}${probTitle}${probBars}${amtAxis}${amtTicks}${amtTitle}${amtBars}${now}${xTicks}${xTitle}</svg>`;
 }
 
 // US EPA AQI category bands (US AQI scale), for background shading.

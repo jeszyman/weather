@@ -4,6 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>GO/NO-GO — outdoor conditions</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <meta name="theme-color" content="#0f1620">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <style>
     :root {
       --ink: #0f1620;        /* console body */
@@ -310,6 +315,7 @@
         <select id="locsel" aria-label="Saved locations"></select>
         <input id="locq" type="text" placeholder="Search city…" aria-label="Search city">
         <button id="locsearch">Search</button>
+        <button id="locgeo" title="Use my location" aria-label="Use my location">📍</button>
         <button id="locremove" title="Remove current location" aria-label="Remove current location">✕</button>
         <div id="picks"></div>
       </div>
@@ -791,6 +797,32 @@
       }
     }
 
+    function useMyLocation() {
+      if (!navigator.geolocation) { pickMessage('Geolocation is not available in this browser.'); return; }
+      pickMessage('Locating…');
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = Math.round(pos.coords.latitude * 1e4) / 1e4;
+          const lon = Math.round(pos.coords.longitude * 1e4) / 1e4;
+          const loc = { name: `My location (${lat}, ${lon})`, lat, lon };
+          const list = addLocation(state.locations, loc);
+          const idx = list.findIndex((e) => sameLoc(e, loc));
+          state = { v: 1, locations: list, activeIdx: idx >= 0 ? idx : list.length - 1 };
+          store.save(state);
+          rebuildSelect();
+          picksEl.innerHTML = '';
+          renderAll();
+        },
+        (err) => {
+          pickMessage(err.code === err.PERMISSION_DENIED
+            ? 'Location permission denied.'
+            : 'Could not get your location.');
+        },
+        { timeout: 10000, maximumAge: 300000 }
+      );
+    }
+
+    document.getElementById('locgeo').addEventListener('click', useMyLocation);
     document.getElementById('locsearch').addEventListener('click', doSearch);
     qEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
     document.getElementById('day-prev').addEventListener('click', () => {
@@ -808,6 +840,13 @@
 
     rebuildSelect();
     renderAll();
+
+    // Register the service worker for offline app-shell + home-screen install.
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch((e) => console.warn('SW registration failed', e));
+      });
+    }
   </script>
 </body>
 </html>
