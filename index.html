@@ -207,13 +207,11 @@
       box-shadow: inset 1px 0 0 var(--accent), inset -1px 0 0 var(--accent);
     }
     table.matrix th.nowcol { color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
-    /* best-window ZONE: a continuous green frame spanning the recommended hour range.
-       Top+bottom on every cell in the band; left edge on the first column, right on the last. */
-    table.matrix td.bestcol { box-shadow: inset 0 2px 0 var(--go), inset 0 -2px 0 var(--go); }
-    table.matrix td.bestcol.best-start { box-shadow: inset 0 2px 0 var(--go), inset 0 -2px 0 var(--go), inset 2px 0 0 var(--go); }
-    table.matrix td.bestcol.best-end { box-shadow: inset 0 2px 0 var(--go), inset 0 -2px 0 var(--go), inset -2px 0 0 var(--go); }
-    table.matrix td.bestcol.best-start.best-end { box-shadow: inset 0 0 0 2px var(--go); }
-    table.matrix td.bestcol.nowcol { box-shadow: inset 0 2px 0 var(--go), inset 0 -2px 0 var(--go), inset 2px 0 0 var(--accent), inset -2px 0 0 var(--accent); }
+    /* best-window ZONE: a bright ring drawn in the dark inter-cell gap so it reads over any
+       go/caution/nogo fill. A white inset ring lifts each cell; the header hour labels turn green. */
+    table.matrix td.bestcol { box-shadow: inset 0 0 0 2px #ffffff, 0 0 0 2px rgba(51,192,111,0.55); }
+    table.matrix th.bestcol { color: var(--go); font-weight: 700; box-shadow: inset 0 -2px 0 var(--go); }
+    table.matrix td.bestcol.nowcol { box-shadow: inset 0 0 0 2px #ffffff, 0 0 0 2px var(--accent); }
     /* clickable cells (metrics with a detail panel) get a pointer + subtle lift on hover */
     table.matrix td[data-panel] { cursor: pointer; }
     table.matrix td[data-panel]:hover { filter: brightness(1.12); outline: 1px solid rgba(255,255,255,0.5); }
