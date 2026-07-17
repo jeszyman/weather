@@ -278,8 +278,14 @@
       #locbar #locremove { grid-column: 2; }
       #picks { grid-column: 1 / -1; }
       .panel { padding: 1rem 0.9rem; }
-      .panel__head { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
-      .legend { font-size: 0.68rem; gap: 0.3rem 0.7rem; }
+      /* panel head: stack title / best-window tag / legend into full-width rows */
+      .panel__head { flex-direction: column; align-items: stretch; gap: 0.45rem; margin-bottom: 0.7rem; }
+      .panel__head > * { width: 100%; }
+      .best-tag { order: 2; }                 /* tag sits directly under the title */
+      .legend { order: 3; font-size: 0.7rem; gap: 0.3rem 0.8rem;
+        padding-top: 0.45rem; border-top: 1px solid var(--line); flex-wrap: wrap; }
+      /* collapsible-panel summaries keep the disclosure caret aligned with the title */
+      details.dpanel > summary.panel__head { flex-direction: row; align-items: center; }
       table.matrix th.rowlabel { padding-right: 8px; }
     }
     @media (max-width: 400px) {
