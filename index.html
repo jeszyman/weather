@@ -207,9 +207,13 @@
       box-shadow: inset 1px 0 0 var(--accent), inset -1px 0 0 var(--accent);
     }
     table.matrix th.nowcol { color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
-    /* best-window column: a soft go-green frame around the recommended hour */
-    table.matrix td.bestcol { box-shadow: inset 0 0 0 2px var(--go); }
-    table.matrix td.bestcol.nowcol { box-shadow: inset 0 0 0 2px var(--go), inset 2px 0 0 var(--accent), inset -2px 0 0 var(--accent); }
+    /* best-window ZONE: a continuous green frame spanning the recommended hour range.
+       Top+bottom on every cell in the band; left edge on the first column, right on the last. */
+    table.matrix td.bestcol { box-shadow: inset 0 2px 0 var(--go), inset 0 -2px 0 var(--go); }
+    table.matrix td.bestcol.best-start { box-shadow: inset 0 2px 0 var(--go), inset 0 -2px 0 var(--go), inset 2px 0 0 var(--go); }
+    table.matrix td.bestcol.best-end { box-shadow: inset 0 2px 0 var(--go), inset 0 -2px 0 var(--go), inset -2px 0 0 var(--go); }
+    table.matrix td.bestcol.best-start.best-end { box-shadow: inset 0 0 0 2px var(--go); }
+    table.matrix td.bestcol.nowcol { box-shadow: inset 0 2px 0 var(--go), inset 0 -2px 0 var(--go), inset 2px 0 0 var(--accent), inset -2px 0 0 var(--accent); }
     /* clickable cells (metrics with a detail panel) get a pointer + subtle lift on hover */
     table.matrix td[data-panel] { cursor: pointer; }
     table.matrix td[data-panel]:hover { filter: brightness(1.12); outline: 1px solid rgba(255,255,255,0.5); }
@@ -349,26 +353,27 @@
     </details>
 
     <details class="panel dpanel">
-      <summary class="panel__head"><h2 class="panel__title" id="h-temp" data-metric="Temperature">Temperature</h2></summary>
-      <div class="screen"><div id="temp">Loading…</div></div>
-    </details>
-
-    <details class="panel dpanel">
-      <summary class="panel__head"><h2 class="panel__title" id="h-precip" data-metric="Precipitation">Precipitation</h2></summary>
-      <p class="cap">Bars = chance of rain (%), line = hourly amount (in).</p>
-      <div class="screen"><div id="precip">Loading…</div></div>
-    </details>
-
-    <details class="panel dpanel">
       <summary class="panel__head"><h2 class="panel__title" id="h-aqi" data-metric="Air quality">Air quality</h2></summary>
       <p class="cap">US AQI over EPA category bands. PM2.5 / PM10 / ozone readout at top right.</p>
       <div class="screen"><div id="aqi">Loading…</div></div>
     </details>
 
     <details class="panel dpanel">
+      <summary class="panel__head"><h2 class="panel__title" id="h-temp" data-metric="Feels like">Feels like</h2></summary>
+      <p class="cap">Apparent temperature (°F) — folds in humidity, wind &amp; sun.</p>
+      <div class="screen"><div id="temp">Loading…</div></div>
+    </details>
+
+    <details class="panel dpanel">
       <summary class="panel__head"><h2 class="panel__title" id="h-wind" data-metric="Wind gusts">Wind gusts</h2></summary>
       <p class="cap">Hourly gusts (mph). Bands: go &lt;20, caution 20&#8211;30, no&#8209;go ≥31.</p>
       <div class="screen"><div id="wind">Loading…</div></div>
+    </details>
+
+    <details class="panel dpanel">
+      <summary class="panel__head"><h2 class="panel__title" id="h-precip" data-metric="Precipitation">Precipitation</h2></summary>
+      <p class="cap">Bars = chance of rain (%), line = hourly amount (in).</p>
+      <div class="screen"><div id="precip">Loading…</div></div>
     </details>
 
     <details class="panel dpanel">
@@ -389,7 +394,7 @@
     import { filterToday, buildSvg, locationToday, todayIndices, buildTempSvg, buildPrecipSvg, buildWeatherTable,
              parseGeocode, addLocation, removeLocation, sameLoc, validateState, seedState, buildMatrix,
              parseAlerts, convectiveHours, renderAlertBanner, radarFrames, frameLabel,
-             dateForOffset, dayLabel, bestHour, buildAqiSvg, buildWindSvg } from './uv-core.js';
+             dateForOffset, dayLabel, bestHour, bestWindow, buildAqiSvg, buildWindSvg } from './uv-core.js';
 
     const MAX_DAY = 6;   // Open-Meteo returns 7 days (0..6)
     let dayOffset = 0;
@@ -478,17 +483,27 @@
 
     // Highlight the lowest-penalty daylight hour column + label it in the panel head.
     function markBestHour(el, hours) {
-      const best = bestHour(hours);
+      const win = bestWindow(hours);
       const tag = document.getElementById('best-hour');
-      if (!best) { if (tag) tag.textContent = ''; return; }
-      const col = hours.findIndex((h) => h.hour === best.hour);
-      if (col >= 0) {
-        for (const row of el.querySelectorAll('tr')) {
+      if (!win || !win.hours.length) { if (tag) tag.textContent = ''; return; }
+      const pad = (n) => String(n).padStart(2, '0');
+      const rows = [...el.querySelectorAll('tr')];
+      win.hours.forEach((hr) => {
+        const col = hours.findIndex((h) => h.hour === hr);
+        if (col < 0) return;
+        const first = hr === win.startHour, last = hr === win.endHour;
+        for (const row of rows) {
           const cell = row.children[col + 1];
-          if (cell) cell.classList.add('bestcol');
+          if (!cell) continue;
+          cell.classList.add('bestcol');
+          if (first) cell.classList.add('best-start');
+          if (last) cell.classList.add('best-end');
         }
-      }
-      if (tag) tag.textContent = `Best window · ${String(best.hour).padStart(2, '0')}:00`;
+      });
+      // label as a range when the window spans >1 hour, else a single time
+      tag.textContent = win.startHour === win.endHour
+        ? `Best window · ${pad(win.startHour)}:00`
+        : `Best window · ${pad(win.startHour)}:00–${pad(win.endHour + 1)}:00`;
     }
 
     // Clicking a cell opens + scrolls to its metric's detail panel.

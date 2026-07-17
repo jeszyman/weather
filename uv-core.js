@@ -75,7 +75,7 @@ export function buildTempSvg(points, opts = {}) {
   const y = (t) => (height - pad) - ((t - lo) / (hi - lo)) * plotH;
 
   const poly = points.length
-    ? `<polyline points="${points.map((p) => `${x(hourOfDay(p.time)).toFixed(1)},${y(p.temp).toFixed(1)}`).join(' ')}" fill="none" stroke="#e65100" stroke-width="3.5"/>`
+    ? `<polyline points="${points.map((p) => `${x(hourOfDay(p.time)).toFixed(1)},${y(p.temp).toFixed(1)}`).join(' ')}" fill="none" stroke="#e65100" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>`
     : '<polyline points="" fill="none" stroke="#e65100"/>';
 
   let ticks = '';
@@ -130,10 +130,10 @@ export function buildSvg(points, opts = {}) {
     points.map((p) => `${x(hourOfDay(p.time)).toFixed(1)},${y(p[key]).toFixed(1)}`).join(' ');
 
   const uvLine = points.length
-    ? `<polyline points="${toPoly('uv')}" fill="none" stroke="#c62828" stroke-width="3.5"/>`
+    ? `<polyline points="${toPoly('uv')}" fill="none" stroke="#c62828" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>`
     : '<polyline points="" fill="none" stroke="#c62828"/>';
   const clearLine = points.length
-    ? `<polyline points="${toPoly('uvClear')}" fill="none" stroke="#7e57c2" stroke-width="2.5" stroke-dasharray="4 3" opacity="0.7"/>`
+    ? `<polyline points="${toPoly('uvClear')}" fill="none" stroke="#7e57c2" stroke-width="2.5" stroke-dasharray="4 3" opacity="0.7" stroke-linecap="round" stroke-linejoin="round"/>`
     : '<polyline points="" fill="none" stroke="#7e57c2"/>';
 
   // x ticks every 3h
@@ -184,7 +184,7 @@ export function buildPrecipSvg(points, opts = {}) {
     .join('');
 
   const amtLine = points.length
-    ? `<polyline points="${points.map((p) => `${x(hourOfDay(p.time)).toFixed(1)},${yAmt(p.amount).toFixed(1)}`).join(' ')}" fill="none" stroke="#01579b" stroke-width="2.5"/>`
+    ? `<polyline points="${points.map((p) => `${x(hourOfDay(p.time)).toFixed(1)},${yAmt(p.amount).toFixed(1)}`).join(' ')}" fill="none" stroke="#01579b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`
     : '<polyline points="" fill="none" stroke="#01579b"/>';
 
   let ticks = '';
@@ -200,7 +200,7 @@ export function buildPrecipSvg(points, opts = {}) {
   const legend =
     `<rect x="${pad}" y="8" width="10" height="10" fill="#4fc3f7" opacity="0.6"/>` +
     `<text x="${pad + 14}" y="17" font-size="13" fill="#555">prob %</text>` +
-    `<line x1="${pad + 70}" y1="13" x2="${pad + 90}" y2="13" stroke="#01579b" stroke-width="2.5"/>` +
+    `<line x1="${pad + 70}" y1="13" x2="${pad + 90}" y2="13" stroke="#01579b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>` +
     `<text x="${pad + 94}" y="17" font-size="13" fill="#555">amount in</text>`;
 
   const axis = `<line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" stroke="#999"/>` +
@@ -242,7 +242,7 @@ export function buildAqiSvg(points, opts = {}) {
     .join('');
 
   const line = points.length
-    ? `<polyline points="${points.map((p) => `${x(hourOfDay(p.time)).toFixed(1)},${y(p.aqi).toFixed(1)}`).join(' ')}" fill="none" stroke="#455a64" stroke-width="3.5"/>`
+    ? `<polyline points="${points.map((p) => `${x(hourOfDay(p.time)).toFixed(1)},${y(p.aqi).toFixed(1)}`).join(' ')}" fill="none" stroke="#455a64" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>`
     : '<polyline points="" fill="none" stroke="#455a64"/>';
 
   let ticks = '';
@@ -295,7 +295,7 @@ export function buildWindSvg(points, opts = {}) {
   }).join('');
 
   const line = points.length
-    ? `<polyline points="${points.map((p) => `${x(hourOfDay(p.time)).toFixed(1)},${y(p.gust).toFixed(1)}`).join(' ')}" fill="none" stroke="#0277bd" stroke-width="3.5"/>`
+    ? `<polyline points="${points.map((p) => `${x(hourOfDay(p.time)).toFixed(1)},${y(p.gust).toFixed(1)}`).join(' ')}" fill="none" stroke="#0277bd" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>`
     : '<polyline points="" fill="none" stroke="#0277bd"/>';
 
   let ticks = '';
@@ -423,6 +423,26 @@ export function bestHour(hours) {
     if (best === null || score < best.score) best = { hour: h.hour, score };
   }
   return best;
+}
+
+// The best contiguous daylight window: the longest run of consecutive daylight hours
+// that all share the minimum penalty score. Returns { startHour, endHour, hours:[...], score }
+// or null. When several equal-length runs tie, the earliest is chosen.
+export function bestWindow(hours) {
+  const best = bestHour(hours);
+  if (!best) return null;
+  let cur = [];
+  let winner = [];
+  for (const h of hours) {
+    const inRun = h.isDay !== 0 && hourScore(h) === best.score;
+    if (inRun) {
+      cur.push(h.hour);
+      if (cur.length > winner.length) winner = cur.slice();
+    } else {
+      cur = [];
+    }
+  }
+  return { startHour: winner[0], endHour: winner[winner.length - 1], hours: winner, score: best.score };
 }
 
 export function buildMatrix(hours) {
